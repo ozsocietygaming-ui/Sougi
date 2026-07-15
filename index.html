@@ -127,15 +127,7 @@ import {
 const S = {
   db: null,
   app: null,
-  // Your Web App's Firebase configuration hardcoded directly[cite: 2]
-  config: {
-    apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco",
-    authDomain: "sougi-12109.firebaseapp.com",
-    projectId: "sougi-12109",
-    storageBucket: "sougi-12109.firebasestorage.app",
-    messagingSenderId: "1001716494860",
-    appId: "1:1001716494860:web:a03facb4ab30499467f429"
-  },
+  config: null,
   role: null,          // 'admin' | 'grocery' | 'agent' | 'client'
   profiles: {},         // { admin:{uid,name,phone}, grocery:{...}, agent:{...}, client:{...} }
   unsub: {},             // active onSnapshot unsubscribers, keyed
@@ -189,8 +181,7 @@ function timeAgo(ts) {
 
 /* ---------------------- Persistence (localStorage) ---------------------- */
 function loadLocal() {
-  // If no local config is stored, fall back to our hardcoded default config[cite: 2]
-  try { S.config = JSON.parse(localStorage.getItem('sougi_fb_config')) || S.config; } catch { }
+  try { S.config = JSON.parse(localStorage.getItem('sougi_fb_config') || 'null'); } catch { S.config = null; }
   try { S.profiles = JSON.parse(localStorage.getItem('sougi_profiles') || '{}'); } catch { S.profiles = {}; }
   S.role = localStorage.getItem('sougi_role') || null;
   try { S.client.cart = JSON.parse(localStorage.getItem('sougi_cart') || '{}'); } catch { S.client.cart = {}; }
@@ -1175,8 +1166,7 @@ function render() {
     } catch (err) {
       console.error(err);
       localStorage.removeItem('sougi_fb_config');
-      // If error occurs, let's keep S.config fallback to retry
-      loadLocal();
+      S.config = null;
     }
   }
   render();
