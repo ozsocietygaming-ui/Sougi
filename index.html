@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sougi — Livraison d'Épicerie</title>
+<meta name="theme-color" content="#0B6E4F">
+
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- FontAwesome -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<!-- QR Code Generator -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          bazaar:  { DEFAULT: '#0B6E4F', dark: '#08543C', light: '#0F8C63' },
+          souk:    { DEFAULT: '#F2A63A', dark: '#D98A1E', light: '#FBCB7E' },
+          clay:    { DEFAULT: '#C1502E', dark: '#9C3E22' },
+          cream:   '#FBF6EC',
+          paper:   '#FFFFFF',
+          ink:     '#1E2321',
+          inkfade: '#5B655F',
+          mint:    '#E7F2EC',
+          line:    '#E4DCC9'
+        },
+        fontFamily: {
+          display: ['Cairo', 'sans-serif'],
+          body: ['Inter', 'sans-serif'],
+          mono: ['IBM Plex Mono', 'monospace']
+        },
+        borderRadius: { '2xl': '1.1rem', '3xl': '1.6rem' },
+        boxShadow: {
+          card: '0 1px 2px rgba(30,35,33,0.04), 0 8px 24px -12px rgba(30,35,33,0.18)',
+          pop:  '0 10px 30px -8px rgba(11,110,79,0.35)'
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  html, body { font-family: 'Inter', sans-serif; background: #FBF6EC; color: #1E2321; -webkit-tap-highlight-color: transparent; }
+  * { -webkit-font-smoothing: antialiased; }
+  .font-display { font-family: 'Cairo', sans-serif; }
+  .font-mono { font-family: 'IBM Plex Mono', monospace; }
+
+  #app-viewport { max-width: 480px; margin: 0 auto; min-height: 100vh; position: relative; background: #FBF6EC; }
+  ::-webkit-scrollbar { width: 0; height: 0; }
+
+  @keyframes riseIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .rise-in { animation: riseIn .35s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes popIn { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+  .pop-in { animation: popIn .28s ease both; }
+  @keyframes toastIn { from { opacity:0; transform: translate(-50%, 12px); } to { opacity:1; transform: translate(-50%,0); } }
+
+  /* perforated ticket edge — signature element for the store ID card */
+  .ticket-edge { position: relative; }
+  .ticket-edge::before, .ticket-edge::after {
+    content: ''; position: absolute; width: 22px; height: 22px; background: #FBF6EC;
+    border-radius: 50%; top: 50%; transform: translateY(-50%);
+  }
+  .ticket-edge::before { left: -11px; }
+  .ticket-edge::after { right: -11px; }
+  .ticket-perf {
+    background-image: repeating-linear-gradient(to bottom, transparent 0 6px, #E4DCC9 6px 7px);
+    width: 1px;
+  }
+
+  .stamp {
+    border: 2.5px dashed rgba(255,255,255,.55);
+    transform: rotate(-6deg);
+  }
+
+  input:focus, textarea:focus, select:focus, button:focus-visible {
+    outline: 2px solid #0B6E4F; outline-offset: 2px;
+  }
+  input, textarea, select { background: #fff; }
+
+  .tab-active { color: #0B6E4F; }
+  .tab-active .tab-dot { opacity: 1; transform: scale(1); }
+  .tab-dot { opacity: 0; transform: scale(0); transition: all .2s ease; }
+
+  .switch { width: 46px; height: 26px; border-radius: 999px; position: relative; transition: background .2s; }
+  .switch::after {
+    content: ''; position: absolute; width: 20px; height: 20px; border-radius: 999px; background: #fff;
+    top: 3px; left: 3px; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  }
+  .switch.on::after { transform: translateX(20px); }
+
+  .badge-dot { width: 7px; height: 7px; border-radius: 999px; display: inline-block; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise-in, .pop-in { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app-viewport">
+  <div id="app"></div>
+  <div id="toast-host" class="fixed bottom-24 left-1/2 z-[999]" style="transform:translateX(-50%)"></div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import {
+  getFirestore, collection, addDoc, doc, setDoc, updateDoc, deleteDoc,
+  onSnapshot, query, where, getDoc, getDocs, serverTimestamp,
+  increment, arrayUnion, orderBy
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+/* ============================================================
+   SOUGI — Application d'épicerie & livraison (Algérie)
+   Fichier unique — HTML + CSS (Tailwind) + JS (Firebase v10)
+   ============================================================ */
+
+/* ---------------------- Global State ---------------------- */
+const S = {
+  db: null,
+  app: null,
+  // Your Web App's Firebase configuration hardcoded directly[cite: 2]
+  config: {
+    apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco",
+    authDomain: "sougi-12109.firebaseapp.com",
+    projectId: "sougi-12109",
+    storageBucket: "sougi-12109.firebasestorage.app",
+    messagingSenderId: "1001716494860",
+    appId: "1:1001716494860:web:a03facb4ab30499467f429"
+  },
+  role: null,          // 'admin' | 'grocery' | 'agent' | 'client'
+  profiles: {},         // { admin:{uid,name,phone}, grocery:{...}, agent:{...}, client:{...} }
+  unsub: {},             // active onSnapshot unsubscribers, keyed
+  data: {
+    users: [], stores: [], products: [], orders: []
+  },
+  client: {
+    activeStoreId: null,
+    cart: {}            // { productId: qty }
+  },
+  devBarOpen: false
+};
+
+const $app = document.getElementById('app');
+const $toasts = document.getElementById('toast-host');
+
+/* ---------------------- Utilities ---------------------- */
+function uid() {
+  return 'u_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+}
+function fmtDA(n) {
+  const v = Number(n || 0);
+  return v.toLocaleString('fr-FR').replace(/\u00A0/g, ' ') + ' DA';
+}
+function storeCodeFromId(id) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) { h = (h * 31 + id.charCodeAt(i)) >>> 0; }
+  return String(10000 + (h % 90000));
+}
+function esc(str) {
+  return String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+function toast(msg, type = 'ok') {
+  const el = document.createElement('div');
+  const bg = type === 'err' ? 'bg-clay' : type === 'info' ? 'bg-ink' : 'bg-bazaar';
+  el.className = `${bg} text-white text-sm font-medium px-4 py-3 rounded-2xl shadow-pop mb-2 pop-in flex items-center gap-2`;
+  el.style.animation = 'toastIn .25s ease both';
+  el.innerHTML = `<i class="fa-solid ${type === 'err' ? 'fa-circle-exclamation' : type === 'info' ? 'fa-circle-info' : 'fa-circle-check'}"></i><span>${esc(msg)}</span>`;
+  $toasts.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 2400);
+}
+function timeAgo(ts) {
+  if (!ts) return '';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const s = Math.max(1, Math.floor((Date.now() - d.getTime()) / 1000));
+  if (s < 60) return `il y a ${s}s`;
+  if (s < 3600) return `il y a ${Math.floor(s/60)} min`;
+  if (s < 86400) return `il y a ${Math.floor(s/3600)} h`;
+  return `il y a ${Math.floor(s/86400)} j`;
+}
+
+/* ---------------------- Persistence (localStorage) ---------------------- */
+function loadLocal() {
+  // If no local config is stored, fall back to our hardcoded default config[cite: 2]
+  try { S.config = JSON.parse(localStorage.getItem('sougi_fb_config')) || S.config; } catch { }
+  try { S.profiles = JSON.parse(localStorage.getItem('sougi_profiles') || '{}'); } catch { S.profiles = {}; }
+  S.role = localStorage.getItem('sougi_role') || null;
+  try { S.client.cart = JSON.parse(localStorage.getItem('sougi_cart') || '{}'); } catch { S.client.cart = {}; }
+}
+function saveProfiles() { localStorage.setItem('sougi_profiles', JSON.stringify(S.profiles)); }
+function saveRole() { localStorage.setItem('sougi_role', S.role || ''); }
+function saveCart() { localStorage.setItem('sougi_cart', JSON.stringify(S.client.cart)); }
+
+/* ---------------------- Firebase Init ---------------------- */
+function initFirebase(config) {
+  S.app = initializeApp(config);
+  S.db = getFirestore(S.app);
+}
+
+/* ---------------------- Firestore Listeners ---------------------- */
+function stopAll() {
+  Object.values(S.unsub).forEach(fn => { try { fn(); } catch {} });
+  S.unsub = {};
+}
+function listenUsers() {
+  S.unsub.users = onSnapshot(collection(S.db, 'users'), snap => {
+    S.data.users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => toast('Erreur Firestore (users): ' + err.message, 'err'));
+}
+function listenStores() {
+  S.unsub.stores = onSnapshot(collection(S.db, 'stores'), snap => {
+    S.data.stores = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => toast('Erreur Firestore (stores): ' + err.message, 'err'));
+}
+function listenProducts(storeId) {
+  if (S.unsub.products) { S.unsub.products(); }
+  const qy = storeId ? query(collection(S.db, 'products'), where('storeId', '==', storeId)) : collection(S.db, 'products');
+  S.unsub.products = onSnapshot(qy, snap => {
+    S.data.products = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => toast('Erreur Firestore (products): ' + err.message, 'err'));
+}
+function listenOrders(filterFn) {
+  S.unsub.orders = onSnapshot(collection(S.db, 'orders'), snap => {
+    S.data.orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+  }, err => toast('Erreur Firestore (orders): ' + err.message, 'err'));
+}
+
+function startListenersForRole() {
+  stopAll();
+  listenUsers();
+  listenStores();
+  listenOrders();
+  if (S.role === 'grocery' && S.profiles.grocery) {
+    listenProducts(S.profiles.grocery.uid);
+  } else if (S.role === 'client') {
+    listenProducts(null);
+  } else {
+    listenProducts(null);
+  }
+}
+
+/* ---------------------- Setup Screen (Firebase Config) ---------------------- */
+function renderSetup() {
+  $app.innerHTML = `
+  <div class="min-h-screen flex flex-col justify-center px-6 py-10 rise-in">
+    <div class="text-center mb-8">
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-bazaar flex items-center justify-center shadow-pop mb-4">
+        <i class="fa-solid fa-basket-shopping text-white text-2xl"></i>
+      </div>
+      <h1 class="font-display font-black text-3xl text-ink">Sougi</h1>
+      <p class="text-inkfade text-sm mt-1">Connectez votre projet Firebase pour démarrer</p>
+    </div>
+
+    <form id="setup-form" class="bg-paper rounded-3xl shadow-card p-5 space-y-3">
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">API Key</label>
+        <input required name="apiKey" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="AIzaSy...">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Auth Domain</label>
+        <input required name="authDomain" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="mon-projet.firebaseapp.com">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Project ID</label>
+        <input required name="projectId" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="mon-projet">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Storage Bucket</label>
+        <input name="storageBucket" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="mon-projet.appspot.com">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Sender ID</label>
+          <input name="messagingSenderId" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="1234567890">
+        </div>
+        <div>
+          <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">App ID</label>
+          <input name="appId" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="1:123:web:abc">
+        </div>
+      </div>
+      <button type="submit" class="w-full bg-bazaar hover:bg-bazaar-dark text-white font-semibold rounded-xl py-3 mt-2 transition-colors">
+        Connecter Firebase <i class="fa-solid fa-arrow-right ms-1"></i>
+      </button>
+      <p class="text-[11px] text-inkfade text-center leading-relaxed pt-1">
+        Astuce : activez Firestore en <b>mode test</b> pour ce prototype. Les clés sont enregistrées uniquement dans le stockage local de cet appareil.
+      </p>
+    </form>
+  </div>`;
+
+  document.getElementById('setup-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const cfg = Object.fromEntries(fd.entries());
+    Object.keys(cfg).forEach(k => { if (!cfg[k]) delete cfg[k]; });
+    try {
+      initFirebase(cfg);
+      S.config = cfg;
+      localStorage.setItem('sougi_fb_config', JSON.stringify(cfg));
+      toast('Connecté à Firebase');
+      startListenersForRole();
+      render();
+    } catch (err) {
+      toast('Configuration invalide : ' + err.message, 'err');
+    }
+  });
+}
+
+/* ---------------------- Dev Bar (Role Switcher) ---------------------- */
+function renderDevBar() {
+  const roles = [
+    { key: 'admin', label: 'Super Admin', icon: 'fa-user-shield' },
+    { key: 'grocery', label: 'Épicerie', icon: 'fa-store' },
+    { key: 'agent', label: 'Livreur', icon: 'fa-motorcycle' },
+    { key: 'client', label: 'Client', icon: 'fa-user' }
+  ];
+  return `
+  <div class="bg-ink text-white text-xs">
+    <button id="devbar-toggle" class="w-full flex items-center justify-between px-4 py-2">
+      <span class="flex items-center gap-2 font-semibold"><i class="fa-solid fa-flask-vial text-souk"></i> Panneau de test — ${roles.find(r=>r.key===S.role)?.label || 'Non connecté'}</span>
+      <i class="fa-solid fa-chevron-${S.devBarOpen ? 'up' : 'down'}"></i>
+    </button>
+    ${S.devBarOpen ? `
+    <div class="px-4 pb-3 grid grid-cols-4 gap-2">
+      ${roles.map(r => `
+        <button data-role="${r.key}" class="devbar-role flex flex-col items-center gap-1 py-2 rounded-xl ${S.role === r.key ? 'bg-bazaar' : 'bg-white/10'}">
+          <i class="fa-solid ${r.icon}"></i>
+          <span class="text-[10px]">${r.label}</span>
+        </button>`).join('')}
+    </div>
+    <div class="px-4 pb-3 flex items-center justify-between">
+      <button id="devbar-reset" class="text-[11px] text-white/60 underline">Réinitialiser la config Firebase</button>
+      <span class="text-[10px] text-white/40 font-mono">${S.config?.projectId || ''}</span>
+    </div>` : ''}
+  </div>`;
+}
+function bindDevBar() {
+  document.getElementById('devbar-toggle')?.addEventListener('click', () => { S.devBarOpen = !S.devBarOpen; render(); });
+  document.querySelectorAll('.devbar-role').forEach(btn => {
+    btn.addEventListener('click', () => switchRole(btn.dataset.role));
+  });
+  document.getElementById('devbar-reset')?.addEventListener('click', () => {
+    if (confirm('Effacer la configuration Firebase enregistrée ?')) {
+      localStorage.removeItem('sougi_fb_config');
+      location.reload();
+    }
+  });
+}
+function switchRole(role) {
+  S.role = role;
+  saveRole();
+  startListenersForRole();
+  render();
+}
+
+/* ---------------------- Mock Login Gate (per role) ---------------------- */
+function renderLoginGate() {
+  const roleMeta = {
+    admin:   { title: 'Super Admin', icon: 'fa-user-shield', hint: 'Gérez les épiceries et les livreurs de la plateforme.' },
+    grocery: { title: 'Compte Épicerie', icon: 'fa-store', hint: 'Gérez votre boutique, votre stock et vos commandes.' },
+    agent:   { title: 'Compte Livreur', icon: 'fa-motorcycle', hint: 'Recevez des courses et gérez vos livraisons.' },
+    client:  { title: 'Compte Client', icon: 'fa-user', hint: 'Commandez chez vos épiceries favorites.' }
+  }[S.role];
+
+  return `
+  <div class="px-5 py-8 rise-in">
+    <div class="w-14 h-14 rounded-2xl bg-mint flex items-center justify-center mb-4">
+      <i class="fa-solid ${roleMeta.icon} text-bazaar text-xl"></i>
+    </div>
+    <h2 class="font-display font-extrabold text-2xl text-ink">${roleMeta.title}</h2>
+    <p class="text-inkfade text-sm mt-1 mb-6">${roleMeta.hint}</p>
+    <form id="login-form" class="space-y-3">
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Nom complet</label>
+        <input required name="name" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm" placeholder="${S.role === 'grocery' ? 'Ex. Épicerie Amel' : 'Ex. Karim Benali'}">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Téléphone</label>
+        <input required name="phone" pattern="0[5-7][0-9]{8}" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm font-mono" placeholder="05xxxxxxxx / 06xxxxxxxx / 07xxxxxxxx">
+      </div>
+      ${S.role === 'grocery' ? `
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Adresse de l'épicerie</label>
+        <input required name="address" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm" placeholder="Ex. Rue Larbi Ben M'hidi, Sétif">
+      </div>` : ''}
+      <button type="submit" class="w-full bg-bazaar hover:bg-bazaar-dark text-white font-semibold rounded-xl py-3.5 mt-2">
+        Continuer <i class="fa-solid fa-arrow-right ms-1"></i>
+      </button>
+    </form>
+  </div>`;
+}
+function bindLoginGate() {
+  document.getElementById('login-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const name = fd.get('name').trim();
+    const phone = fd.get('phone').trim();
+    const address = fd.get('address')?.trim() || '';
+    const id = uid();
+    try {
+      await setDoc(doc(S.db, 'users', id), {
+        uid: id, name, phone, role: S.role,
+        activeStatus: S.role === 'agent' ? false : true,
+        createdAt: serverTimestamp()
+      });
+      if (S.role === 'grocery') {
+        await setDoc(doc(S.db, 'stores', id), {
+          id, storeName: name, phone, address,
+          qrCodeData: id, favoriteCount: 0, createdAt: serverTimestamp()
+        });
+      }
+      S.profiles[S.role] = { uid: id, name, phone };
+      saveProfiles();
+      toast('Bienvenue, ' + name);
+      startListenersForRole();
+      render();
+    } catch (err) {
+      toast('Erreur : ' + err.message, 'err');
+    }
+  });
+}
+
+/* ---------------------- Bottom Nav ---------------------- */
+const TABS = {
+  admin:   [ ['dashboard','fa-chart-line','Aperçu'], ['stores','fa-store','Boutiques'], ['agents','fa-motorcycle','Livreurs'], ['create','fa-user-plus','Créer'] ],
+  grocery: [ ['orders','fa-receipt','Commandes'], ['inventory','fa-boxes-stacked','Stock'], ['qr','fa-qrcode','Mon QR'], ['profile','fa-store','Profil'] ],
+  agent:   [ ['tasks','fa-route','Courses'], ['profile','fa-user','Profil'] ],
+  client:  [ ['stores','fa-shop','Boutiques'], ['cart','fa-cart-shopping','Panier'], ['orders','fa-receipt','Mes commandes'], ['profile','fa-user','Profil'] ]
+};
+S._tab = {};
+
+function renderNav() {
+  const tabs = TABS[S.role];
+  const current = S._tab[S.role] || tabs[0][0];
+  const cartCount = Object.values(S.client.cart).reduce((a,b)=>a+b,0);
+  return `
+  <div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] bg-paper border-t border-line px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex z-40">
+    ${tabs.map(([key, icon, label]) => `
+      <button data-tab="${key}" class="nav-tab flex-1 flex flex-col items-center gap-1 py-1.5 relative ${current === key ? 'tab-active' : 'text-inkfade'}">
+        <span class="relative">
+          <i class="fa-solid ${icon} text-lg"></i>
+          ${key === 'cart' && cartCount > 0 ? `<span class="absolute -top-1.5 -right-2 bg-clay text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">${cartCount}</span>` : ''}
+        </span>
+        <span class="text-[10px] font-semibold">${label}</span>
+        <span class="tab-dot w-1 h-1 rounded-full bg-bazaar absolute -bottom-0.5"></span>
+      </button>`).join('')}
+  </div>`;
+}
+function bindNav() {
+  document.querySelectorAll('.nav-tab').forEach(btn => {
+    btn.addEventListener('click', () => { S._tab[S.role] = btn.dataset.tab; render(); });
+  });
+}
+
+/* ---------------------- Top Header (per-role shell) ---------------------- */
+function topHeader(title, subtitle) {
+  return `
+  <div class="px-5 pt-5 pb-4 flex items-center justify-between">
+    <div>
+      <h1 class="font-display font-extrabold text-xl text-ink">${title}</h1>
+      ${subtitle ? `<p class="text-xs text-inkfade mt-0.5">${subtitle}</p>` : ''}
+    </div>
+    <button id="switch-profile" class="w-9 h-9 rounded-full bg-mint text-bazaar flex items-center justify-center">
+      <i class="fa-solid fa-right-left text-sm"></i>
+    </button>
+  </div>`;
+}
+function bindHeader() {
+  document.getElementById('switch-profile')?.addEventListener('click', () => {
+    if (confirm('Se déconnecter de ce profil de test ?')) {
+      delete S.profiles[S.role];
+      saveProfiles();
+      render();
+    }
+  });
+}
+
+/* =========================================================
+   SUPER ADMIN
+   ========================================================= */
+function renderAdmin() {
+  const tab = S._tab.admin || 'dashboard';
+  const stores = S.data.stores;
+  const agents = S.data.users.filter(u => u.role === 'agent');
+  const activeOrders = S.data.orders.filter(o => !['delivered','cancelled'].includes(o.status));
+
+  let body = '';
+  if (tab === 'dashboard') {
+    body = `
+    <div class="px-5 space-y-3">
+      <div class="grid grid-cols-3 gap-3">
+        ${metricCard('fa-bolt', activeOrders.length, 'Commandes actives', 'text-souk-dark', 'bg-souk/15')}
+        ${metricCard('fa-store', stores.length, 'Boutiques', 'text-bazaar', 'bg-mint')}
+        ${metricCard('fa-motorcycle', agents.filter(a=>a.activeStatus).length, 'Livreurs actifs', 'text-clay', 'bg-clay/10')}
+      </div>
+      <div class="bg-paper rounded-2xl shadow-card p-4 mt-4">
+        <h3 class="font-display font-bold text-sm mb-3">Activité récente</h3>
+        ${S.data.orders.length === 0 ? emptyState('fa-inbox', 'Aucune commande pour le moment') :
+          [...S.data.orders].sort((a,b)=> (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)).slice(0,6).map(o => `
+          <div class="flex items-center justify-between py-2.5 border-b border-line last:border-0">
+            <div>
+              <p class="text-sm font-semibold">${esc(o.clientName || 'Client')}</p>
+              <p class="text-[11px] text-inkfade">${esc(storeName(o.storeId))} · ${timeAgo(o.createdAt)}</p>
+            </div>
+            ${statusPill(o.status)}
+          </div>`).join('')}
+      </div>
+    </div>`;
+  } else if (tab === 'stores') {
+    body = `
+    <div class="px-5 space-y-3">
+      ${stores.length === 0 ? emptyState('fa-store-slash', "Aucune boutique enregistrée") : stores.map(st => `
+      <div class="bg-paper rounded-2xl shadow-card p-4 flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-mint flex items-center justify-center text-bazaar"><i class="fa-solid fa-store"></i></div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-sm truncate">${esc(st.storeName)}</p>
+          <p class="text-[11px] text-inkfade truncate">${esc(st.address || '')} · ${esc(st.phone || '')}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-[10px] text-inkfade">Code</p>
+          <p class="font-mono text-xs font-bold text-bazaar">${storeCodeFromId(st.id)}</p>
+        </div>
+      </div>`).join('')}
+    </div>`;
+  } else if (tab === 'agents') {
+    body = `
+    <div class="px-5 space-y-3">
+      ${agents.length === 0 ? emptyState('fa-motorcycle', 'Aucun livreur enregistré') : agents.map(a => `
+      <div class="bg-paper rounded-2xl shadow-card p-4 flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-mint flex items-center justify-center text-bazaar"><i class="fa-solid fa-motorcycle"></i></div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-sm truncate">${esc(a.name)}</p>
+          <p class="text-[11px] text-inkfade font-mono">${esc(a.phone || '')}</p>
+        </div>
+        <span class="flex items-center gap-1.5 text-[11px] font-semibold ${a.activeStatus ? 'text-bazaar' : 'text-inkfade'}">
+          <span class="badge-dot ${a.activeStatus ? 'bg-bazaar' : 'bg-inkfade'}"></span>${a.activeStatus ? 'En ligne' : 'Hors ligne'}
+        </span>
+      </div>`).join('')}
+    </div>`;
+  } else if (tab === 'create') {
+    body = `
+    <div class="px-5">
+      <div class="bg-paper rounded-2xl shadow-card p-4">
+        <div class="flex gap-2 mb-4">
+          <button data-createrole="grocery" class="create-role-btn flex-1 py-2 rounded-xl text-sm font-semibold ${S._createRole !== 'agent' ? 'bg-bazaar text-white' : 'bg-mint text-bazaar'}">Épicerie</button>
+          <button data-createrole="agent" class="create-role-btn flex-1 py-2 rounded-xl text-sm font-semibold ${S._createRole === 'agent' ? 'bg-bazaar text-white' : 'bg-mint text-bazaar'}">Livreur</button>
+        </div>
+        <form id="admin-create-form" class="space-y-3">
+          <div>
+            <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Nom</label>
+            <input required name="name" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Téléphone</label>
+            <input required name="phone" pattern="0[5-7][0-9]{8}" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm font-mono" placeholder="05xxxxxxxx">
+          </div>
+          ${(S._createRole !== 'agent') ? `
+          <div>
+            <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Adresse de la boutique</label>
+            <input name="address" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm">
+          </div>` : ''}
+          <button type="submit" class="w-full bg-bazaar text-white font-semibold rounded-xl py-3 mt-1">
+            Créer le compte ${S._createRole === 'agent' ? 'Livreur' : 'Épicerie'}
+          </button>
+        </form>
+      </div>
+    </div>`;
+  }
+
+  $app.innerHTML = `
+  ${renderDevBar()}
+  ${topHeader('Super Admin', S.profiles.admin?.name)}
+  ${body}
+  <div class="h-24"></div>
+  ${renderNav()}`;
+
+  bindDevBar(); bindHeader(); bindNav();
+
+  document.querySelectorAll('.create-role-btn').forEach(b => b.addEventListener('click', () => { S._createRole = b.dataset.createrole; render(); }));
+  document.getElementById('admin-create-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const role = S._createRole === 'agent' ? 'agent' : 'grocery';
+    const name = fd.get('name').trim(), phone = fd.get('phone').trim(), address = fd.get('address')?.trim() || '';
+    const id = uid();
+    try {
+      await setDoc(doc(S.db, 'users', id), { uid: id, name, phone, role, activeStatus: role === 'agent' ? false : true, createdAt: serverTimestamp() });
+      if (role === 'grocery') {
+        await setDoc(doc(S.db, 'stores', id), { id, storeName: name, phone, address, qrCodeData: id, favoriteCount: 0, createdAt: serverTimestamp() });
+      }
+      toast(`Compte ${role === 'agent' ? 'livreur' : 'épicerie'} créé pour ${name}`);
+      e.target.reset();
+    } catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  });
+}
+
+function metricCard(icon, value, label, textCls, bgCls) {
+  return `
+  <div class="bg-paper rounded-2xl shadow-card p-3.5">
+    <div class="w-8 h-8 rounded-lg ${bgCls} flex items-center justify-center ${textCls} mb-2"><i class="fa-solid ${icon} text-xs"></i></div>
+    <p class="font-display font-black text-xl leading-none">${value}</p>
+    <p class="text-[10px] text-inkfade mt-1 leading-tight">${label}</p>
+  </div>`;
+}
+function emptyState(icon, msg) {
+  return `<div class="py-10 text-center text-inkfade">
+    <i class="fa-solid ${icon} text-3xl mb-3 opacity-40"></i>
+    <p class="text-sm">${msg}</p>
+  </div>`;
+}
+function storeName(id) { return S.data.stores.find(s => s.id === id)?.storeName || 'Boutique'; }
+function statusPill(status) {
+  const map = {
+    pending:   ['En attente', 'bg-souk/15 text-souk-dark'],
+    assigned:  ['Assignée', 'bg-mint text-bazaar'],
+    picked_up: ['En route', 'bg-bazaar/15 text-bazaar'],
+    delivered: ['Livrée', 'bg-bazaar text-white'],
+    cancelled: ['Annulée', 'bg-clay/15 text-clay']
+  };
+  const [label, cls] = map[status] || ['—', 'bg-line text-inkfade'];
+  return `<span class="text-[10px] font-bold px-2 py-1 rounded-full ${cls}">${label}</span>`;
+}
+
+/* =========================================================
+   GROCERY OWNER
+   ========================================================= */
+function renderGrocery() {
+  const me = S.profiles.grocery;
+  const store = S.data.stores.find(s => s.id === me.uid) || { storeName: me.name, phone: me.phone, address: '' };
+  const tab = S._tab.grocery || 'orders';
+  const myProducts = S.data.products.filter(p => p.storeId === me.uid);
+  const myOrders = S.data.orders.filter(o => o.storeId === me.uid);
+  const agents = S.data.users.filter(u => u.role === 'agent' && u.activeStatus);
+
+  let body = '';
+  if (tab === 'orders') {
+    const sorted = [...myOrders].sort((a,b)=> (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    body = `<div class="px-5 space-y-3">
+      ${sorted.length === 0 ? emptyState('fa-receipt', 'Aucune commande pour le moment') : sorted.map(o => orderCardGrocery(o, agents)).join('')}
+    </div>`;
+  } else if (tab === 'inventory') {
+    body = `
+    <div class="px-5">
+      <button id="add-product-btn" class="w-full mb-3 border-2 border-dashed border-bazaar/40 text-bazaar rounded-2xl py-3 text-sm font-semibold flex items-center justify-center gap-2">
+        <i class="fa-solid fa-plus"></i> Ajouter un produit
+      </button>
+      <div id="product-form-slot"></div>
+      <div class="space-y-2.5 mt-2">
+        ${myProducts.length === 0 ? emptyState('fa-boxes-stacked', 'Aucun produit — ajoutez votre premier article') : myProducts.map(p => `
+        <div class="bg-paper rounded-2xl shadow-card p-3.5 flex items-center gap-3">
+          <img src="${p.imageUrl || 'https://placehold.co/80x80/E7F2EC/0B6E4F?text=%F0%9F%9B%92'}" class="w-12 h-12 rounded-xl object-cover bg-mint">
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm truncate">${esc(p.name)}</p>
+            <p class="text-xs text-inkfade">${esc(p.category || 'Divers')} · <span class="font-mono font-semibold text-ink">${fmtDA(p.price)}</span></p>
+          </div>
+          <button data-toggle-stock="${p.id}" data-stock="${p.stockStatus}" class="text-[10px] font-bold px-2.5 py-1.5 rounded-full ${p.stockStatus ? 'bg-mint text-bazaar' : 'bg-clay/10 text-clay'}">
+            ${p.stockStatus ? 'En stock' : 'Épuisé'}
+          </button>
+          <button data-del-product="${p.id}" class="w-7 h-7 rounded-lg bg-clay/10 text-clay flex items-center justify-center"><i class="fa-solid fa-trash text-xs"></i></button>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  } else if (tab === 'qr') {
+    const code = storeCodeFromId(me.uid);
+    body = `
+    <div class="px-5">
+      <div class="bg-bazaar rounded-3xl shadow-pop p-6 relative overflow-hidden ticket-edge">
+        <div class="absolute top-4 right-4 stamp text-[10px] font-black text-white/70 rounded-full px-3 py-1 tracking-wider">ÉPICERIE</div>
+        <p class="text-white/70 text-[11px] font-semibold uppercase tracking-wider mb-1">Carte boutique</p>
+        <h2 class="font-display font-extrabold text-white text-xl mb-4">${esc(store.storeName)}</h2>
+        <div class="bg-white rounded-2xl p-4 flex justify-center" id="qr-holder"></div>
+        <div class="flex items-center justify-center gap-1 mt-4 text-white/40" aria-hidden="true">
+          ${'•'.repeat(30)}
+        </div>
+        <div class="text-center mt-3">
+          <p class="text-white/70 text-[11px]">Code boutique (5 chiffres)</p>
+          <p class="font-mono text-3xl font-bold text-white tracking-[0.2em]">${code}</p>
+        </div>
+      </div>
+      <p class="text-center text-xs text-inkfade mt-4">Vos clients scannent ce code ou saisissent le numéro pour ajouter votre boutique à leurs favoris.</p>
+    </div>`;
+  } else if (tab === 'profile') {
+    body = `
+    <div class="px-5">
+      <div class="bg-paper rounded-2xl shadow-card p-4">
+        <form id="store-profile-form" class="space-y-3">
+          <div>
+            <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Nom de la boutique</label>
+            <input name="storeName" value="${esc(store.storeName)}" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Téléphone</label>
+            <input name="phone" value="${esc(store.phone)}" pattern="0[5-7][0-9]{8}" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm font-mono">
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Adresse</label>
+            <textarea name="address" rows="2" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm">${esc(store.address || '')}</textarea>
+          </div>
+          <button class="w-full bg-bazaar text-white font-semibold rounded-xl py-3 mt-1">Enregistrer</button>
+        </form>
+      </div>
+      <div class="bg-paper rounded-2xl shadow-card p-4 mt-3">
+        <p class="text-xs font-semibold text-inkfade uppercase tracking-wide mb-1">Boutique favorite de</p>
+        <p class="font-display font-black text-2xl text-bazaar">${store.favoriteCount || 0} <span class="text-sm font-body font-normal text-inkfade">clients</span></p>
+      </div>
+    </div>`;
+  }
+
+  $app.innerHTML = `
+  ${renderDevBar()}
+  ${topHeader('Espace Épicerie', store.storeName)}
+  ${body}
+  <div class="h-24"></div>
+  ${renderNav()}`;
+
+  bindDevBar(); bindHeader(); bindNav();
+  bindGrocery(me, myProducts);
+}
+
+function orderCardGrocery(o, agents) {
+  const assignedAgent = S.data.users.find(u => u.uid === o.agentId);
+  return `
+  <div class="bg-paper rounded-2xl shadow-card p-4">
+    <div class="flex items-center justify-between mb-2">
+      <p class="font-semibold text-sm">${esc(o.clientName)}</p>
+      ${statusPill(o.status)}
+    </div>
+    <p class="text-[11px] text-inkfade font-mono mb-1"><i class="fa-solid fa-phone text-[10px] me-1"></i>${esc(o.clientPhone)}</p>
+    <p class="text-[11px] text-inkfade mb-2"><i class="fa-solid fa-location-dot text-[10px] me-1"></i>${esc(o.clientAddress)}</p>
+    <div class="bg-cream rounded-xl p-2.5 text-xs mb-3">
+      ${(o.items || []).map(it => `<div class="flex justify-between py-0.5"><span>${esc(it.qty)}× ${esc(it.name)}</span><span class="font-mono">${fmtDA(it.price * it.qty)}</span></div>`).join('')}
+      <div class="flex justify-between pt-1.5 mt-1 border-t border-line font-semibold"><span>Total</span><span class="font-mono">${fmtDA((o.totalAmount||0)+(o.deliveryFee||0))}</span></div>
+    </div>
+    ${o.status === 'pending' ? `
+    <div class="space-y-2">
+      <div class="flex items-center justify-between bg-cream rounded-xl px-3 py-2">
+        <span class="text-xs font-medium">Amana (livreur paie d'avance)</span>
+        <button data-cash-toggle="${o.id}" data-cash="${o.cashWorkflow === 'upfront_by_agent'}" class="switch ${o.cashWorkflow === 'upfront_by_agent' ? 'on bg-bazaar' : 'bg-line'}"></button>
+      </div>
+      <select data-assign="${o.id}" class="w-full px-3 py-2.5 rounded-xl border border-line text-sm">
+        <option value="">Assigner à un livreur…</option>
+        ${agents.map(a => `<option value="${a.uid}">${esc(a.name)}</option>`).join('')}
+      </select>
+      ${agents.length === 0 ? `<p class="text-[11px] text-clay">Aucun livreur en ligne actuellement</p>` : ''}
+    </div>` : assignedAgent ? `
+    <p class="text-[11px] text-inkfade"><i class="fa-solid fa-motorcycle me-1"></i>Livreur : <span class="font-semibold text-ink">${esc(assignedAgent.name)}</span></p>` : ''}
+  </div>`;
+}
+
+function bindGrocery(me, myProducts) {
+  document.getElementById('store-profile-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    try {
+      await updateDoc(doc(S.db, 'stores', me.uid), {
+        storeName: fd.get('storeName').trim(), phone: fd.get('phone').trim(), address: fd.get('address').trim()
+      });
+      toast('Profil de la boutique mis à jour');
+    } catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  });
+
+  document.getElementById('qr-holder') && (() => {
+    document.getElementById('qr-holder').innerHTML = '';
+    new QRCode(document.getElementById('qr-holder'), { text: me.uid, width: 176, height: 176, colorDark: '#0B6E4F', colorLight: '#ffffff' });
+  })();
+
+  document.getElementById('add-product-btn')?.addEventListener('click', () => {
+    const slot = document.getElementById('product-form-slot');
+    slot.innerHTML = `
+    <form id="new-product-form" class="bg-paper rounded-2xl shadow-card p-4 mb-3 space-y-2.5 pop-in">
+      <input required name="name" placeholder="Nom du produit" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm">
+      <div class="grid grid-cols-2 gap-2.5">
+        <input required type="number" min="0" name="price" placeholder="Prix (DA)" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm font-mono">
+        <select name="category" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm">
+          <option>Épicerie</option><option>Fruits & Légumes</option><option>Boissons</option>
+          <option>Produits laitiers</option><option>Boulangerie</option><option>Hygiène</option><option>Autre</option>
+        </select>
+      </div>
+      <input name="imageUrl" placeholder="URL d'image (optionnel)" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm">
+      <div class="flex gap-2">
+        <button type="submit" class="flex-1 bg-bazaar text-white font-semibold rounded-xl py-2.5 text-sm">Ajouter</button>
+        <button type="button" id="cancel-product" class="px-4 rounded-xl border border-line text-sm">Annuler</button>
+      </div>
+    </form>`;
+    document.getElementById('cancel-product').addEventListener('click', () => { slot.innerHTML = ''; });
+    document.getElementById('new-product-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await addDoc(collection(S.db, 'products'), {
+          storeId: me.uid, name: fd.get('name').trim(), price: Number(fd.get('price')),
+          category: fd.get('category'), imageUrl: fd.get('imageUrl').trim(), stockStatus: true, createdAt: serverTimestamp()
+        });
+        toast('Produit ajouté');
+        slot.innerHTML = '';
+      } catch (err) { toast('Erreur : ' + err.message, 'err'); }
+    });
+  });
+
+  document.querySelectorAll('[data-toggle-stock]').forEach(btn => btn.addEventListener('click', async () => {
+    try { await updateDoc(doc(S.db, 'products', btn.dataset.toggleStock), { stockStatus: btn.dataset.stock !== 'true' }); }
+    catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  }));
+  document.querySelectorAll('[data-del-product]').forEach(btn => btn.addEventListener('click', async () => {
+    if (!confirm('Supprimer ce produit ?')) return;
+    try { await deleteDoc(doc(S.db, 'products', btn.dataset.delProduct)); toast('Produit supprimé'); }
+    catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  }));
+  document.querySelectorAll('[data-cash-toggle]').forEach(btn => btn.addEventListener('click', async () => {
+    const newVal = btn.dataset.cash !== 'true' ? 'upfront_by_agent' : 'collected_on_delivery';
+    try { await updateDoc(doc(S.db, 'orders', btn.dataset.cashToggle), { cashWorkflow: newVal }); }
+    catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  }));
+  document.querySelectorAll('[data-assign]').forEach(sel => sel.addEventListener('change', async () => {
+    if (!sel.value) return;
+    try {
+      await updateDoc(doc(S.db, 'orders', sel.dataset.assign), { agentId: sel.value, status: 'assigned' });
+      toast('Commande assignée au livreur');
+    } catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  }));
+}
+
+/* =========================================================
+   DELIVERY AGENT
+   ========================================================= */
+function renderAgent() {
+  const me = S.profiles.agent;
+  const meUser = S.data.users.find(u => u.uid === me.uid) || { activeStatus: false };
+  const tab = S._tab.agent || 'tasks';
+  const myOrders = S.data.orders.filter(o => o.agentId === me.uid && !['delivered','cancelled'].includes(o.status));
+
+  let body = '';
+  if (tab === 'tasks') {
+    body = `
+    <div class="px-5">
+      <div class="bg-paper rounded-2xl shadow-card p-4 flex items-center justify-between mb-4">
+        <div>
+          <p class="font-semibold text-sm">${meUser.activeStatus ? 'Vous êtes en ligne' : 'Vous êtes hors ligne'}</p>
+          <p class="text-[11px] text-inkfade">${meUser.activeStatus ? 'Vous recevez des courses' : 'Activez pour recevoir des courses'}</p>
+        </div>
+        <button id="avail-toggle" class="switch ${meUser.activeStatus ? 'on bg-bazaar' : 'bg-line'}"></button>
+      </div>
+      <div class="space-y-3">
+        ${myOrders.length === 0 ? emptyState('fa-route', 'Aucune course assignée pour le moment') : myOrders.map(o => `
+        <div class="bg-paper rounded-2xl shadow-card p-4">
+          <div class="flex items-center justify-between mb-2">
+            <p class="font-semibold text-sm">${esc(o.clientName)}</p>
+            ${statusPill(o.status)}
+          </div>
+          <p class="text-[11px] text-inkfade font-mono mb-1"><i class="fa-solid fa-phone text-[10px] me-1"></i>${esc(o.clientPhone)}</p>
+          <p class="text-[11px] text-inkfade mb-3"><i class="fa-solid fa-location-dot text-[10px] me-1"></i>${esc(o.clientAddress)}</p>
+          <div class="bg-cream rounded-xl p-3 mb-3">
+            <div class="flex justify-between text-xs mb-1"><span>Boutique</span><span class="font-semibold">${esc(storeName(o.storeId))}</span></div>
+            <div class="flex justify-between text-xs mb-1"><span>Total à encaisser</span><span class="font-mono font-bold text-bazaar">${fmtDA((o.totalAmount||0)+(o.deliveryFee||0))}</span></div>
+            ${o.cashWorkflow === 'upfront_by_agent'
+              ? `<p class="text-[11px] text-clay mt-1.5"><i class="fa-solid fa-triangle-exclamation me-1"></i>À payer à la boutique au retrait : <b>${fmtDA(o.totalAmount)}</b> (Amana)</p>`
+              : `<p class="text-[11px] text-inkfade mt-1.5"><i class="fa-solid fa-circle-info me-1"></i>Vous remettez l'argent à la boutique après livraison</p>`}
+          </div>
+          <div class="flex gap-2">
+            ${o.status === 'assigned' ? `<button data-pickup="${o.id}" class="flex-1 bg-bazaar text-white text-xs font-semibold rounded-xl py-2.5">Confirmer le retrait</button>` : ''}
+            ${o.status === 'picked_up' ? `<button data-delivered="${o.id}" class="flex-1 bg-bazaar text-white text-xs font-semibold rounded-xl py-2.5">Marquer livrée</button>` : ''}
+            <button data-cancel="${o.id}" class="px-4 rounded-xl border border-clay/30 text-clay text-xs font-semibold">Annuler</button>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  } else if (tab === 'profile') {
+    const done = S.data.orders.filter(o => o.agentId === me.uid && o.status === 'delivered');
+    body = `
+    <div class="px-5">
+      <div class="bg-paper rounded-2xl shadow-card p-5 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-mint text-bazaar flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-motorcycle text-xl"></i></div>
+        <p class="font-display font-bold text-lg">${esc(me.name)}</p>
+        <p class="text-xs text-inkfade font-mono">${esc(me.phone)}</p>
+        <div class="grid grid-cols-2 gap-3 mt-4">
+          <div class="bg-cream rounded-xl p-3"><p class="font-display font-black text-xl">${done.length}</p><p class="text-[10px] text-inkfade">Livraisons faites</p></div>
+          <div class="bg-cream rounded-xl p-3"><p class="font-display font-black text-xl">${myOrders.length}</p><p class="text-[10px] text-inkfade">Courses en cours</p></div>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  $app.innerHTML = `
+  ${renderDevBar()}
+  ${topHeader('Espace Livreur', me.name)}
+  ${body}
+  <div class="h-24"></div>
+  ${renderNav()}`;
+
+  bindDevBar(); bindHeader(); bindNav();
+
+  document.getElementById('avail-toggle')?.addEventListener('click', async () => {
+    try { await updateDoc(doc(S.db, 'users', me.uid), { activeStatus: !meUser.activeStatus }); }
+    catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  });
+  document.querySelectorAll('[data-pickup]').forEach(b => b.addEventListener('click', async () => {
+    try { await updateDoc(doc(S.db, 'orders', b.dataset.pickup), { status: 'picked_up' }); toast('Retrait confirmé'); }
+    catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  }));
+  document.querySelectorAll('[data-delivered]').forEach(b => b.addEventListener('click', async () => {
+    try { await updateDoc(doc(S.db, 'orders', b.dataset.delivered), { status: 'delivered' }); toast('Commande livrée 🎉'); }
+    catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  }));
+  document.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Annuler cette course ?')) return;
+    try { await updateDoc(doc(S.db, 'orders', b.dataset.cancel), { status: 'cancelled' }); toast('Course annulée', 'info'); }
+    catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  }));
+}
+
+/* =========================================================
+   CLIENT
+   ========================================================= */
+function renderClient() {
+  const me = S.profiles.client;
+  const meUser = S.data.users.find(u => u.uid === me.uid);
+  const favIds = meUser?.favoriteStores || [];
+  const tab = S._tab.client || 'stores';
+
+  let body = '';
+  if (tab === 'stores') {
+    if (S.client.activeStoreId) {
+      body = renderStoreMenu(S.client.activeStoreId);
+    } else {
+      const favStores = S.data.stores.filter(s => favIds.includes(s.id));
+      body = `
+      <div class="px-5">
+        <div class="bg-paper rounded-2xl shadow-card p-4 mb-4">
+          <p class="text-xs font-semibold text-inkfade uppercase tracking-wide mb-2">Ajouter une boutique</p>
+          <form id="add-store-form" class="flex gap-2">
+            <input name="code" placeholder="Code boutique (5 chiffres) ou ID" class="flex-1 px-3.5 py-2.5 rounded-xl border border-line text-sm font-mono">
+            <button class="bg-bazaar text-white px-4 rounded-xl text-sm font-semibold"><i class="fa-solid fa-qrcode"></i></button>
+          </form>
+          <p class="text-[11px] text-inkfade mt-2">Scannez le QR de l'épicerie ou saisissez son code à 5 chiffres.</p>
+        </div>
+        <p class="text-xs font-semibold text-inkfade uppercase tracking-wide mb-2 px-1">Mes boutiques favorites</p>
+        <div class="space-y-2.5">
+          ${favStores.length === 0 ? emptyState('fa-heart-crack', 'Ajoutez votre première boutique ci-dessus') : favStores.map(st => `
+          <button data-open-store="${st.id}" class="w-full bg-paper rounded-2xl shadow-card p-4 flex items-center gap-3 text-left">
+            <div class="w-11 h-11 rounded-xl bg-mint flex items-center justify-center text-bazaar"><i class="fa-solid fa-store"></i></div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-sm truncate">${esc(st.storeName)}</p>
+              <p class="text-[11px] text-inkfade truncate">${esc(st.address || '')}</p>
+            </div>
+            <i class="fa-solid fa-chevron-right text-inkfade text-xs"></i>
+          </button>`).join('')}
+        </div>
+      </div>`;
+    }
+  } else if (tab === 'cart') {
+    body = renderCart();
+  } else if (tab === 'orders') {
+    const mine = S.data.orders.filter(o => o.clientId === me.uid).sort((a,b)=> (b.createdAt?.seconds||0)-(a.createdAt?.seconds||0));
+    body = `<div class="px-5 space-y-3">
+      ${mine.length === 0 ? emptyState('fa-receipt', "Vous n'avez pas encore commandé") : mine.map(o => `
+      <div class="bg-paper rounded-2xl shadow-card p-4">
+        <div class="flex items-center justify-between mb-2">
+          <p class="font-semibold text-sm">${esc(storeName(o.storeId))}</p>
+          ${statusPill(o.status)}
+        </div>
+        <div class="bg-cream rounded-xl p-2.5 text-xs">
+          ${(o.items||[]).map(it => `<div class="flex justify-between py-0.5"><span>${it.qty}× ${esc(it.name)}</span><span class="font-mono">${fmtDA(it.price*it.qty)}</span></div>`).join('')}
+          <div class="flex justify-between pt-1.5 mt-1 border-t border-line font-semibold"><span>Total (+livraison)</span><span class="font-mono">${fmtDA((o.totalAmount||0)+(o.deliveryFee||0))}</span></div>
+        </div>
+        <p class="text-[11px] text-inkfade mt-2">${timeAgo(o.createdAt)}</p>
+      </div>`).join('')}
+    </div>`;
+  } else if (tab === 'profile') {
+    body = `
+    <div class="px-5">
+      <div class="bg-paper rounded-2xl shadow-card p-5 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-mint text-bazaar flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-user text-xl"></i></div>
+        <p class="font-display font-bold text-lg">${esc(me.name)}</p>
+        <p class="text-xs text-inkfade font-mono">${esc(me.phone)}</p>
+      </div>
+    </div>`;
+  }
+
+  $app.innerHTML = `
+  ${renderDevBar()}
+  ${topHeader(S.client.activeStoreId ? '' : 'Bonjour 👋', S.client.activeStoreId ? '' : me.name)}
+  ${body}
+  <div class="h-24"></div>
+  ${renderNav()}`;
+
+  bindDevBar(); bindHeader(); bindNav();
+  bindClient(me, meUser);
+}
+
+function renderStoreMenu(storeId) {
+  const st = S.data.stores.find(s => s.id === storeId);
+  const products = S.data.products.filter(p => p.storeId === storeId);
+  return `
+  <div class="px-5">
+    <button id="back-to-stores" class="text-bazaar text-sm font-semibold mb-3 flex items-center gap-1.5">
+      <i class="fa-solid fa-arrow-left"></i> Boutiques
+    </button>
+    <div class="bg-bazaar rounded-2xl p-4 mb-4 text-white">
+      <h2 class="font-display font-bold text-lg">${esc(st?.storeName || '')}</h2>
+      <p class="text-white/70 text-xs mt-0.5">${esc(st?.address || '')}</p>
+    </div>
+    <div class="space-y-2.5">
+      ${products.length === 0 ? emptyState('fa-box-open', 'Aucun produit disponible pour le moment') : products.map(p => `
+      <div class="bg-paper rounded-2xl shadow-card p-3.5 flex items-center gap-3 ${!p.stockStatus ? 'opacity-50' : ''}">
+        <img src="${p.imageUrl || 'https://placehold.co/80x80/E7F2EC/0B6E4F?text=%F0%9F%9B%92'}" class="w-12 h-12 rounded-xl object-cover bg-mint">
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-sm truncate">${esc(p.name)}</p>
+          <p class="text-xs font-mono text-inkfade">${fmtDA(p.price)}</p>
+        </div>
+        ${p.stockStatus ? `
+        <div class="flex items-center gap-2">
+          <button data-cart-dec="${p.id}" class="w-7 h-7 rounded-lg bg-cream text-ink flex items-center justify-center text-xs">−</button>
+          <span class="text-sm font-semibold w-4 text-center">${S.client.cart[p.id] || 0}</span>
+          <button data-cart-inc="${p.id}" data-store="${storeId}" class="w-7 h-7 rounded-lg bg-bazaar text-white flex items-center justify-center text-xs">+</button>
+        </div>` : `<span class="text-[10px] font-bold text-clay">Épuisé</span>`}
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderCart() {
+  const cartIds = Object.keys(S.client.cart).filter(id => S.client.cart[id] > 0);
+  if (cartIds.length === 0) {
+    return `<div class="px-5">${emptyState('fa-cart-shopping', 'Votre panier est vide')}</div>`;
+  }
+  const items = cartIds.map(id => {
+    const p = S.data.products.find(pr => pr.id === id);
+    return p ? { ...p, qty: S.client.cart[id] } : null;
+  }).filter(Boolean);
+  const storeId = items[0]?.storeId;
+  const st = S.data.stores.find(s => s.id === storeId);
+  const total = items.reduce((sum, it) => sum + it.price * it.qty, 0);
+  const deliveryFee = 100;
+
+  return `
+  <div class="px-5">
+    <p class="text-xs font-semibold text-inkfade uppercase tracking-wide mb-2">${esc(st?.storeName || '')}</p>
+    <div class="bg-paper rounded-2xl shadow-card p-4 mb-4">
+      ${items.map(it => `
+      <div class="flex items-center justify-between py-2 border-b border-line last:border-0">
+        <div class="min-w-0">
+          <p class="text-sm font-medium truncate">${esc(it.name)}</p>
+          <p class="text-[11px] text-inkfade font-mono">${fmtDA(it.price)} × ${it.qty}</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button data-cart-dec="${it.id}" class="w-7 h-7 rounded-lg bg-cream text-ink flex items-center justify-center text-xs">−</button>
+          <span class="text-sm font-semibold w-4 text-center">${it.qty}</span>
+          <button data-cart-inc="${it.id}" data-store="${it.storeId}" class="w-7 h-7 rounded-lg bg-bazaar text-white flex items-center justify-center text-xs">+</button>
+        </div>
+      </div>`).join('')}
+      <div class="flex justify-between text-sm pt-3 mt-1"><span class="text-inkfade">Sous-total</span><span class="font-mono">${fmtDA(total)}</span></div>
+      <div class="flex justify-between text-sm py-1"><span class="text-inkfade">Livraison</span><span class="font-mono">${fmtDA(deliveryFee)}</span></div>
+      <div class="flex justify-between text-base font-bold pt-1"><span>Total</span><span class="font-mono text-bazaar">${fmtDA(total + deliveryFee)}</span></div>
+    </div>
+
+    <div class="bg-paper rounded-2xl shadow-card p-4">
+      <p class="text-xs font-semibold text-inkfade uppercase tracking-wide mb-3">Livraison</p>
+      <form id="checkout-form" class="space-y-2.5">
+        <input required name="name" placeholder="Nom complet" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm">
+        <input required name="phone" pattern="0[5-7][0-9]{8}" placeholder="05xxxxxxxx / 06xxxxxxxx / 07xxxxxxxx" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm font-mono">
+        <textarea required name="address" rows="2" placeholder="Adresse de livraison" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm"></textarea>
+        <div class="bg-cream rounded-xl px-3.5 py-2.5 flex items-center gap-2 text-xs text-inkfade">
+          <i class="fa-solid fa-money-bill-wave text-bazaar"></i> Paiement à la livraison (الدفع عند الاستلام)
+        </div>
+        <button type="submit" data-store="${storeId}" data-total="${total}" data-fee="${deliveryFee}" class="w-full bg-bazaar text-white font-semibold rounded-xl py-3.5 mt-1">
+          Commander — ${fmtDA(total + deliveryFee)}
+        </button>
+      </form>
+    </div>
+  </div>`;
+}
+
+function bindClient(me, meUser) {
+  document.getElementById('add-store-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const raw = new FormData(e.target).get('code').trim();
+    let match = S.data.stores.find(s => s.id === raw || storeCodeFromId(s.id) === raw);
+    if (!match) { toast('Boutique introuvable', 'err'); return; }
+    try {
+      await updateDoc(doc(S.db, 'users', me.uid), { favoriteStores: arrayUnion(match.id) });
+      await updateDoc(doc(S.db, 'stores', match.id), { favoriteCount: increment(1) });
+      toast(esc(match.storeName) + ' ajoutée à vos favoris');
+      e.target.reset();
+    } catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  });
+
+  document.querySelectorAll('[data-open-store]').forEach(b => b.addEventListener('click', () => {
+    S.client.activeStoreId = b.dataset.openStore; render();
+  }));
+  document.getElementById('back-to-stores')?.addEventListener('click', () => { S.client.activeStoreId = null; render(); });
+
+  document.querySelectorAll('[data-cart-inc]').forEach(b => b.addEventListener('click', () => {
+    const otherStoreItems = Object.keys(S.client.cart).some(id => S.client.cart[id] > 0 && S.data.products.find(p=>p.id===id)?.storeId !== b.dataset.store);
+    if (otherStoreItems && !confirm("Votre panier contient des articles d'une autre boutique. Vider le panier et continuer ?")) return;
+    if (otherStoreItems) S.client.cart = {};
+    S.client.cart[b.dataset.cartInc] = (S.client.cart[b.dataset.cartInc] || 0) + 1;
+    saveCart(); render();
+  }));
+  document.querySelectorAll('[data-cart-dec]').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.cartDec;
+    S.client.cart[id] = Math.max(0, (S.client.cart[id] || 0) - 1);
+    saveCart(); render();
+  }));
+
+  document.getElementById('checkout-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const btn = e.target.querySelector('button[type=submit]');
+    const storeId = btn.dataset.store, total = Number(btn.dataset.total), fee = Number(btn.dataset.fee);
+    const items = Object.keys(S.client.cart).filter(id => S.client.cart[id] > 0).map(id => {
+      const p = S.data.products.find(pr => pr.id === id);
+      return p ? { productId: id, name: p.name, price: p.price, qty: S.client.cart[id] } : null;
+    }).filter(Boolean);
+    try {
+      await addDoc(collection(S.db, 'orders'), {
+        storeId, clientId: me.uid, clientName: fd.get('name').trim(), clientPhone: fd.get('phone').trim(),
+        clientAddress: fd.get('address').trim(), items, totalAmount: total, deliveryFee: fee,
+        agentId: null, status: 'pending', cashWorkflow: 'collected_on_delivery', createdAt: serverTimestamp()
+      });
+      S.client.cart = {}; saveCart();
+      S.client.activeStoreId = null;
+      S._tab.client = 'orders';
+      toast('Commande envoyée à la boutique !');
+      render();
+    } catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  });
+}
+
+/* ---------------------- Root Render ---------------------- */
+function render() {
+  if (!S.config || !S.db) { renderSetup(); return; }
+  if (!S.role) {
+    $app.innerHTML = `
+    ${renderDevBar()}
+    <div class="px-5 pt-10 text-center">
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-bazaar flex items-center justify-center shadow-pop mb-4">
+        <i class="fa-solid fa-basket-shopping text-white text-2xl"></i>
+      </div>
+      <h1 class="font-display font-black text-2xl">Sougi</h1>
+      <p class="text-inkfade text-sm mt-1 mb-6">Choisissez un profil dans le panneau de test ci-dessus pour commencer.</p>
+    </div>`;
+    S.devBarOpen = true;
+    bindDevBar();
+    return;
+  }
+  if (!S.profiles[S.role]) {
+    $app.innerHTML = `${renderDevBar()}${renderLoginGate()}`;
+    bindDevBar(); bindLoginGate();
+    return;
+  }
+  if (S.role === 'admin') renderAdmin();
+  else if (S.role === 'grocery') renderGrocery();
+  else if (S.role === 'agent') renderAgent();
+  else if (S.role === 'client') renderClient();
+}
+
+/* ---------------------- Boot ---------------------- */
+(function boot() {
+  loadLocal();
+  if (S.config) {
+    try {
+      initFirebase(S.config);
+      if (S.role) startListenersForRole();
+    } catch (err) {
+      console.error(err);
+      localStorage.removeItem('sougi_fb_config');
+      // If error occurs, let's keep S.config fallback to retry
+      loadLocal();
+    }
+  }
+  render();
+})();
+</script>
+</body>
+</html>
