@@ -123,14 +123,24 @@ import {
    Fichier unique — HTML + CSS (Tailwind) + JS (Firebase v10)
    ============================================================ */
 
+/* ---------------------- Firebase Project Config ---------------------- */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco",
+  authDomain: "sougi-12109.firebaseapp.com",
+  projectId: "sougi-12109",
+  storageBucket: "sougi-12109.firebasestorage.app",
+  messagingSenderId: "1001716494860",
+  appId: "1:1001716494860:web:a03facb4ab30499467f429"
+};
+
 /* ---------------------- Global State ---------------------- */
 const S = {
   db: null,
   app: null,
-  config: null,
   role: null,          // 'admin' | 'grocery' | 'agent' | 'client'
-  profiles: {},         // { admin:{uid,name,phone}, grocery:{...}, agent:{...}, client:{...} }
-  unsub: {},             // active onSnapshot unsubscribers, keyed
+  session: null,         // { uid, role } persisted in localStorage — who is logged in
+  profiles: {},           // cache of the logged-in user's own profile, keyed by role
+  unsub: {},               // active onSnapshot unsubscribers, keyed
   data: {
     users: [], stores: [], products: [], orders: []
   },
@@ -138,7 +148,8 @@ const S = {
     activeStoreId: null,
     cart: {}            // { productId: qty }
   },
-  devBarOpen: false
+  auth: { pickedRole: null, mode: null, phone: '' }, // welcome -> phone -> signup flow
+  showAdminModal: false
 };
 
 const $app = document.getElementById('app');
@@ -181,13 +192,11 @@ function timeAgo(ts) {
 
 /* ---------------------- Persistence (localStorage) ---------------------- */
 function loadLocal() {
-  try { S.config = JSON.parse(localStorage.getItem('sougi_fb_config') || 'null'); } catch { S.config = null; }
-  try { S.profiles = JSON.parse(localStorage.getItem('sougi_profiles') || '{}'); } catch { S.profiles = {}; }
-  S.role = localStorage.getItem('sougi_role') || null;
+  try { S.session = JSON.parse(localStorage.getItem('sougi_session') || 'null'); } catch { S.session = null; }
   try { S.client.cart = JSON.parse(localStorage.getItem('sougi_cart') || '{}'); } catch { S.client.cart = {}; }
 }
-function saveProfiles() { localStorage.setItem('sougi_profiles', JSON.stringify(S.profiles)); }
-function saveRole() { localStorage.setItem('sougi_role', S.role || ''); }
+function saveSession() { localStorage.setItem('sougi_session', JSON.stringify(S.session)); }
+function clearSession() { localStorage.removeItem('sougi_session'); S.session = null; S.role = null; S.profiles = {}; S._tab = {}; }
 function saveCart() { localStorage.setItem('sougi_cart', JSON.stringify(S.client.cart)); }
 
 /* ---------------------- Firebase Init ---------------------- */
@@ -204,6 +213,10 @@ function stopAll() {
 function listenUsers() {
   S.unsub.users = onSnapshot(collection(S.db, 'users'), snap => {
     S.data.users = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (S.session) {
+      const me = S.data.users.find(u => u.uid === S.session.uid);
+      if (me) S.profiles[S.session.role] = { uid: me.uid, name: me.name, phone: me.phone };
+    }
     render();
   }, err => toast('Erreur Firestore (users): ' + err.message, 'err'));
 }
@@ -235,164 +248,142 @@ function startListenersForRole() {
   listenOrders();
   if (S.role === 'grocery' && S.profiles.grocery) {
     listenProducts(S.profiles.grocery.uid);
-  } else if (S.role === 'client') {
-    listenProducts(null);
   } else {
     listenProducts(null);
   }
 }
 
-/* ---------------------- Setup Screen (Firebase Config) ---------------------- */
-function renderSetup() {
+/* ---------------------- Welcome / Role Picker ---------------------- */
+let _adminTapCount = 0, _adminTapTimer = null;
+
+function renderWelcome() {
   $app.innerHTML = `
-  <div class="min-h-screen flex flex-col justify-center px-6 py-10 rise-in">
-    <div class="text-center mb-8">
-      <div class="w-16 h-16 mx-auto rounded-2xl bg-bazaar flex items-center justify-center shadow-pop mb-4">
-        <i class="fa-solid fa-basket-shopping text-white text-2xl"></i>
-      </div>
-      <h1 class="font-display font-black text-3xl text-ink">Sougi</h1>
-      <p class="text-inkfade text-sm mt-1">Connectez votre projet Firebase pour démarrer</p>
-    </div>
-
-    <form id="setup-form" class="bg-paper rounded-3xl shadow-card p-5 space-y-3">
-      <div>
-        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">API Key</label>
-        <input required name="apiKey" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="AIzaSy...">
-      </div>
-      <div>
-        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Auth Domain</label>
-        <input required name="authDomain" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="mon-projet.firebaseapp.com">
-      </div>
-      <div>
-        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Project ID</label>
-        <input required name="projectId" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="mon-projet">
-      </div>
-      <div>
-        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Storage Bucket</label>
-        <input name="storageBucket" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="mon-projet.appspot.com">
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Sender ID</label>
-          <input name="messagingSenderId" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="1234567890">
-        </div>
-        <div>
-          <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">App ID</label>
-          <input name="appId" class="w-full mt-1 px-3.5 py-2.5 rounded-xl border border-line text-sm" placeholder="1:123:web:abc">
-        </div>
-      </div>
-      <button type="submit" class="w-full bg-bazaar hover:bg-bazaar-dark text-white font-semibold rounded-xl py-3 mt-2 transition-colors">
-        Connecter Firebase <i class="fa-solid fa-arrow-right ms-1"></i>
-      </button>
-      <p class="text-[11px] text-inkfade text-center leading-relaxed pt-1">
-        Astuce : activez Firestore en <b>mode test</b> pour ce prototype. Les clés sont enregistrées uniquement dans le stockage local de cet appareil.
-      </p>
-    </form>
-  </div>`;
-
-  document.getElementById('setup-form').addEventListener('submit', e => {
-    e.preventDefault();
-    const fd = new FormData(e.target);
-    const cfg = Object.fromEntries(fd.entries());
-    Object.keys(cfg).forEach(k => { if (!cfg[k]) delete cfg[k]; });
-    try {
-      initFirebase(cfg);
-      S.config = cfg;
-      localStorage.setItem('sougi_fb_config', JSON.stringify(cfg));
-      toast('Connecté à Firebase');
-      startListenersForRole();
-      render();
-    } catch (err) {
-      toast('Configuration invalide : ' + err.message, 'err');
-    }
-  });
-}
-
-/* ---------------------- Dev Bar (Role Switcher) ---------------------- */
-function renderDevBar() {
-  const roles = [
-    { key: 'admin', label: 'Super Admin', icon: 'fa-user-shield' },
-    { key: 'grocery', label: 'Épicerie', icon: 'fa-store' },
-    { key: 'agent', label: 'Livreur', icon: 'fa-motorcycle' },
-    { key: 'client', label: 'Client', icon: 'fa-user' }
-  ];
-  return `
-  <div class="bg-ink text-white text-xs">
-    <button id="devbar-toggle" class="w-full flex items-center justify-between px-4 py-2">
-      <span class="flex items-center gap-2 font-semibold"><i class="fa-solid fa-flask-vial text-souk"></i> Panneau de test — ${roles.find(r=>r.key===S.role)?.label || 'Non connecté'}</span>
-      <i class="fa-solid fa-chevron-${S.devBarOpen ? 'up' : 'down'}"></i>
+  <div class="px-6 pt-14 pb-10 text-center rise-in">
+    <button id="logo-tap" aria-label="Sougi" class="w-16 h-16 mx-auto rounded-2xl bg-bazaar flex items-center justify-center shadow-pop mb-4">
+      <i class="fa-solid fa-basket-shopping text-white text-2xl"></i>
     </button>
-    ${S.devBarOpen ? `
-    <div class="px-4 pb-3 grid grid-cols-4 gap-2">
-      ${roles.map(r => `
-        <button data-role="${r.key}" class="devbar-role flex flex-col items-center gap-1 py-2 rounded-xl ${S.role === r.key ? 'bg-bazaar' : 'bg-white/10'}">
-          <i class="fa-solid ${r.icon}"></i>
-          <span class="text-[10px]">${r.label}</span>
-        </button>`).join('')}
+    <h1 class="font-display font-black text-3xl text-ink">Sougi</h1>
+    <p class="text-inkfade text-sm mt-1 mb-8">Votre épicerie, livrée chez vous</p>
+    <div class="space-y-3 text-left">
+      <button data-role="grocery" class="role-pick w-full bg-paper rounded-2xl shadow-card p-4 flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-mint text-bazaar flex items-center justify-center shrink-0"><i class="fa-solid fa-store"></i></div>
+        <div><p class="font-semibold text-sm">Je suis une Épicerie</p><p class="text-[11px] text-inkfade">Gérer ma boutique et mes commandes</p></div>
+      </button>
+      <button data-role="agent" class="role-pick w-full bg-paper rounded-2xl shadow-card p-4 flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-mint text-bazaar flex items-center justify-center shrink-0"><i class="fa-solid fa-motorcycle"></i></div>
+        <div><p class="font-semibold text-sm">Je suis un Livreur</p><p class="text-[11px] text-inkfade">Recevoir des courses et livrer</p></div>
+      </button>
+      <button data-role="client" class="role-pick w-full bg-paper rounded-2xl shadow-card p-4 flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-mint text-bazaar flex items-center justify-center shrink-0"><i class="fa-solid fa-user"></i></div>
+        <div><p class="font-semibold text-sm">Je suis un Client</p><p class="text-[11px] text-inkfade">Commander chez mes épiceries favorites</p></div>
+      </button>
     </div>
-    <div class="px-4 pb-3 flex items-center justify-between">
-      <button id="devbar-reset" class="text-[11px] text-white/60 underline">Réinitialiser la config Firebase</button>
-      <span class="text-[10px] text-white/40 font-mono">${S.config?.projectId || ''}</span>
-    </div>` : ''}
-  </div>`;
-}
-function bindDevBar() {
-  document.getElementById('devbar-toggle')?.addEventListener('click', () => { S.devBarOpen = !S.devBarOpen; render(); });
-  document.querySelectorAll('.devbar-role').forEach(btn => {
-    btn.addEventListener('click', () => switchRole(btn.dataset.role));
-  });
-  document.getElementById('devbar-reset')?.addEventListener('click', () => {
-    if (confirm('Effacer la configuration Firebase enregistrée ?')) {
-      localStorage.removeItem('sougi_fb_config');
-      location.reload();
-    }
-  });
-}
-function switchRole(role) {
-  S.role = role;
-  saveRole();
-  startListenersForRole();
-  render();
+  </div>
+  ${renderAdminModal()}`;
+  bindWelcome();
 }
 
-/* ---------------------- Mock Login Gate (per role) ---------------------- */
-function renderLoginGate() {
-  const roleMeta = {
-    admin:   { title: 'Super Admin', icon: 'fa-user-shield', hint: 'Gérez les épiceries et les livreurs de la plateforme.' },
-    grocery: { title: 'Compte Épicerie', icon: 'fa-store', hint: 'Gérez votre boutique, votre stock et vos commandes.' },
-    agent:   { title: 'Compte Livreur', icon: 'fa-motorcycle', hint: 'Recevez des courses et gérez vos livraisons.' },
-    client:  { title: 'Compte Client', icon: 'fa-user', hint: 'Commandez chez vos épiceries favorites.' }
-  }[S.role];
+function bindWelcome() {
+  document.getElementById('logo-tap')?.addEventListener('click', () => {
+    _adminTapCount++;
+    clearTimeout(_adminTapTimer);
+    _adminTapTimer = setTimeout(() => { _adminTapCount = 0; }, 2000);
+    if (_adminTapCount >= 5) { _adminTapCount = 0; S.showAdminModal = true; render(); }
+  });
+  document.querySelectorAll('.role-pick').forEach(b => b.addEventListener('click', () => {
+    S.auth.pickedRole = b.dataset.role; S.auth.mode = 'phone'; render();
+  }));
+  bindAdminModal();
+}
 
-  return `
+/* ---------------------- Phone Login / Signup ---------------------- */
+function renderPhoneAuth() {
+  const role = S.auth.pickedRole;
+  const meta = {
+    grocery: { title: 'Compte Épicerie', icon: 'fa-store', hint: 'Connectez-vous ou créez votre boutique.' },
+    agent:   { title: 'Compte Livreur', icon: 'fa-motorcycle', hint: 'Connectez-vous ou inscrivez-vous comme livreur.' },
+    client:  { title: 'Compte Client', icon: 'fa-user', hint: 'Connectez-vous ou créez votre compte client.' }
+  }[role];
+  $app.innerHTML = `
   <div class="px-5 py-8 rise-in">
+    <button id="auth-back" class="text-bazaar text-sm font-semibold mb-4 flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> Retour</button>
     <div class="w-14 h-14 rounded-2xl bg-mint flex items-center justify-center mb-4">
-      <i class="fa-solid ${roleMeta.icon} text-bazaar text-xl"></i>
+      <i class="fa-solid ${meta.icon} text-bazaar text-xl"></i>
     </div>
-    <h2 class="font-display font-extrabold text-2xl text-ink">${roleMeta.title}</h2>
-    <p class="text-inkfade text-sm mt-1 mb-6">${roleMeta.hint}</p>
-    <form id="login-form" class="space-y-3">
-      <div>
-        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Nom complet</label>
-        <input required name="name" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm" placeholder="${S.role === 'grocery' ? 'Ex. Épicerie Amel' : 'Ex. Karim Benali'}">
-      </div>
+    <h2 class="font-display font-extrabold text-2xl text-ink">${meta.title}</h2>
+    <p class="text-inkfade text-sm mt-1 mb-6">${meta.hint}</p>
+    <form id="phone-form" class="space-y-3">
       <div>
         <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Téléphone</label>
-        <input required name="phone" pattern="0[5-7][0-9]{8}" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm font-mono" placeholder="05xxxxxxxx / 06xxxxxxxx / 07xxxxxxxx">
+        <input required name="phone" pattern="0[5-7][0-9]{8}" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm font-mono" placeholder="05xxxxxxxx / 06xxxxxxxx / 07xxxxxxxx" value="${esc(S.auth.phone)}">
       </div>
-      ${S.role === 'grocery' ? `
-      <div>
-        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Adresse de l'épicerie</label>
-        <input required name="address" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm" placeholder="Ex. Rue Larbi Ben M'hidi, Sétif">
-      </div>` : ''}
       <button type="submit" class="w-full bg-bazaar hover:bg-bazaar-dark text-white font-semibold rounded-xl py-3.5 mt-2">
         Continuer <i class="fa-solid fa-arrow-right ms-1"></i>
       </button>
     </form>
   </div>`;
+  document.getElementById('auth-back').addEventListener('click', () => { S.auth = { pickedRole: null, mode: null, phone: '' }; render(); });
+  document.getElementById('phone-form').addEventListener('submit', async e => {
+    e.preventDefault();
+    const phone = new FormData(e.target).get('phone').trim();
+    S.auth.phone = phone;
+    const btn = e.target.querySelector('button[type=submit]');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Vérification…';
+    try {
+      const found = await tryPhoneLogin(role, phone);
+      if (!found) { S.auth.mode = 'signup'; render(); }
+    } catch (err) {
+      toast('Erreur : ' + err.message, 'err');
+      btn.disabled = false; btn.innerHTML = 'Continuer <i class="fa-solid fa-arrow-right ms-1"></i>';
+    }
+  });
 }
-function bindLoginGate() {
-  document.getElementById('login-form')?.addEventListener('submit', async e => {
+
+async function tryPhoneLogin(role, phone) {
+  const qy = query(collection(S.db, 'users'), where('phone', '==', phone), where('role', '==', role));
+  const snap = await getDocs(qy);
+  if (snap.empty) return false;
+  const d = snap.docs[0];
+  loginAs(role, { uid: d.id, name: d.data().name, phone: d.data().phone });
+  return true;
+}
+
+function renderSignup() {
+  const role = S.auth.pickedRole;
+  const meta = {
+    grocery: { title: 'Créer ma boutique', icon: 'fa-store' },
+    agent:   { title: 'Devenir Livreur', icon: 'fa-motorcycle' },
+    client:  { title: 'Créer mon compte', icon: 'fa-user' }
+  }[role];
+  $app.innerHTML = `
+  <div class="px-5 py-8 rise-in">
+    <button id="auth-back" class="text-bazaar text-sm font-semibold mb-4 flex items-center gap-1.5"><i class="fa-solid fa-arrow-left"></i> Retour</button>
+    <div class="w-14 h-14 rounded-2xl bg-mint flex items-center justify-center mb-4">
+      <i class="fa-solid ${meta.icon} text-bazaar text-xl"></i>
+    </div>
+    <h2 class="font-display font-extrabold text-2xl text-ink">${meta.title}</h2>
+    <p class="text-inkfade text-sm mt-1 mb-6">Numéro non trouvé — complétez votre inscription.</p>
+    <form id="signup-form" class="space-y-3">
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Nom complet</label>
+        <input required name="name" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm" placeholder="${role === 'grocery' ? 'Ex. Épicerie Amel' : 'Ex. Karim Benali'}">
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Téléphone</label>
+        <input required name="phone" pattern="0[5-7][0-9]{8}" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm font-mono" value="${esc(S.auth.phone)}">
+      </div>
+      ${role === 'grocery' ? `
+      <div>
+        <label class="text-xs font-semibold text-inkfade uppercase tracking-wide">Adresse de l'épicerie</label>
+        <input required name="address" class="w-full mt-1 px-3.5 py-3 rounded-xl border border-line text-sm" placeholder="Ex. Rue Larbi Ben M'hidi, Sétif">
+      </div>` : ''}
+      <button type="submit" class="w-full bg-bazaar hover:bg-bazaar-dark text-white font-semibold rounded-xl py-3.5 mt-2">
+        Créer mon compte <i class="fa-solid fa-arrow-right ms-1"></i>
+      </button>
+    </form>
+  </div>`;
+  document.getElementById('auth-back').addEventListener('click', () => { S.auth = { pickedRole: null, mode: null, phone: '' }; render(); });
+  document.getElementById('signup-form').addEventListener('submit', async e => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const name = fd.get('name').trim();
@@ -401,25 +392,79 @@ function bindLoginGate() {
     const id = uid();
     try {
       await setDoc(doc(S.db, 'users', id), {
-        uid: id, name, phone, role: S.role,
-        activeStatus: S.role === 'agent' ? false : true,
+        uid: id, name, phone, role,
+        activeStatus: role === 'agent' ? false : true,
         createdAt: serverTimestamp()
       });
-      if (S.role === 'grocery') {
+      if (role === 'grocery') {
         await setDoc(doc(S.db, 'stores', id), {
           id, storeName: name, phone, address,
           qrCodeData: id, favoriteCount: 0, createdAt: serverTimestamp()
         });
       }
-      S.profiles[S.role] = { uid: id, name, phone };
-      saveProfiles();
-      toast('Bienvenue, ' + name);
-      startListenersForRole();
-      render();
-    } catch (err) {
-      toast('Erreur : ' + err.message, 'err');
-    }
+      loginAs(role, { uid: id, name, phone });
+    } catch (err) { toast('Erreur : ' + err.message, 'err'); }
   });
+}
+
+function loginAs(role, profile) {
+  S.role = role;
+  S.profiles[role] = profile;
+  S.session = { uid: profile.uid, role };
+  saveSession();
+  S.auth = { pickedRole: null, mode: null, phone: '' };
+  startListenersForRole();
+  toast('Bienvenue, ' + profile.name);
+  render();
+}
+
+/* ---------------------- Hidden Super Admin Access ---------------------- */
+function renderAdminModal() {
+  if (!S.showAdminModal) return '';
+  return `
+  <div class="fixed inset-0 bg-ink/50 z-[999] flex items-end justify-center" id="admin-modal-backdrop">
+    <div class="bg-paper w-full max-w-[480px] rounded-t-3xl p-5 pop-in">
+      <div class="w-10 h-1.5 bg-line rounded-full mx-auto mb-4"></div>
+      <h3 class="font-display font-bold text-lg mb-1">Accès Super Admin</h3>
+      <p class="text-xs text-inkfade mb-4">Réservé à l'administration de la plateforme Sougi.</p>
+      <form id="admin-login-form" class="space-y-2.5">
+        <input required name="phone" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm font-mono" placeholder="Téléphone admin">
+        <input required name="code" type="password" class="w-full px-3.5 py-2.5 rounded-xl border border-line text-sm font-mono" placeholder="Code d'accès">
+        <button class="w-full bg-ink text-white font-semibold rounded-xl py-3">Entrer</button>
+        <button type="button" id="admin-modal-close" class="w-full text-center text-xs text-inkfade py-1">Annuler</button>
+      </form>
+    </div>
+  </div>`;
+}
+function bindAdminModal() {
+  document.getElementById('admin-modal-close')?.addEventListener('click', () => { S.showAdminModal = false; render(); });
+  document.getElementById('admin-login-form')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const phone = fd.get('phone').trim(), code = fd.get('code').trim();
+    try {
+      const ok = await verifyAdmin(phone, code);
+      if (!ok) { toast('Téléphone ou code incorrect', 'err'); return; }
+      const id = 'admin_' + phone;
+      await setDoc(doc(S.db, 'users', id), {
+        uid: id, name: 'Super Admin', phone, role: 'admin', activeStatus: true, createdAt: serverTimestamp()
+      }, { merge: true });
+      S.showAdminModal = false;
+      loginAs('admin', { uid: id, name: 'Super Admin', phone });
+    } catch (err) { toast('Erreur : ' + err.message, 'err'); }
+  });
+}
+async function verifyAdmin(phone, code) {
+  const ref = doc(S.db, 'settings', 'adminAccess');
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    const defaults = { phone: '0555000000', code: '123456' };
+    await setDoc(ref, defaults);
+    toast(`Premier accès : identifiants admin créés (code ${defaults.code}). Changez-les dans Firestore > settings/adminAccess.`, 'info');
+    return phone === defaults.phone && code === defaults.code;
+  }
+  const d = snap.data();
+  return phone === d.phone && code === d.code;
 }
 
 /* ---------------------- Bottom Nav ---------------------- */
@@ -462,16 +507,16 @@ function topHeader(title, subtitle) {
       <h1 class="font-display font-extrabold text-xl text-ink">${title}</h1>
       ${subtitle ? `<p class="text-xs text-inkfade mt-0.5">${subtitle}</p>` : ''}
     </div>
-    <button id="switch-profile" class="w-9 h-9 rounded-full bg-mint text-bazaar flex items-center justify-center">
-      <i class="fa-solid fa-right-left text-sm"></i>
+    <button id="logout-btn" class="w-9 h-9 rounded-full bg-mint text-bazaar flex items-center justify-center">
+      <i class="fa-solid fa-arrow-right-from-bracket text-sm"></i>
     </button>
   </div>`;
 }
 function bindHeader() {
-  document.getElementById('switch-profile')?.addEventListener('click', () => {
-    if (confirm('Se déconnecter de ce profil de test ?')) {
-      delete S.profiles[S.role];
-      saveProfiles();
+  document.getElementById('logout-btn')?.addEventListener('click', () => {
+    if (confirm('Se déconnecter ?')) {
+      stopAll();
+      clearSession();
       render();
     }
   });
@@ -570,13 +615,12 @@ function renderAdmin() {
   }
 
   $app.innerHTML = `
-  ${renderDevBar()}
   ${topHeader('Super Admin', S.profiles.admin?.name)}
   ${body}
   <div class="h-24"></div>
   ${renderNav()}`;
 
-  bindDevBar(); bindHeader(); bindNav();
+  bindHeader(); bindNav();
 
   document.querySelectorAll('.create-role-btn').forEach(b => b.addEventListener('click', () => { S._createRole = b.dataset.createrole; render(); }));
   document.getElementById('admin-create-form')?.addEventListener('submit', async e => {
@@ -709,13 +753,12 @@ function renderGrocery() {
   }
 
   $app.innerHTML = `
-  ${renderDevBar()}
   ${topHeader('Espace Épicerie', store.storeName)}
   ${body}
   <div class="h-24"></div>
   ${renderNav()}`;
 
-  bindDevBar(); bindHeader(); bindNav();
+  bindHeader(); bindNav();
   bindGrocery(me, myProducts);
 }
 
@@ -883,13 +926,12 @@ function renderAgent() {
   }
 
   $app.innerHTML = `
-  ${renderDevBar()}
   ${topHeader('Espace Livreur', me.name)}
   ${body}
   <div class="h-24"></div>
   ${renderNav()}`;
 
-  bindDevBar(); bindHeader(); bindNav();
+  bindHeader(); bindNav();
 
   document.getElementById('avail-toggle')?.addEventListener('click', async () => {
     try { await updateDoc(doc(S.db, 'users', me.uid), { activeStatus: !meUser.activeStatus }); }
@@ -979,13 +1021,12 @@ function renderClient() {
   }
 
   $app.innerHTML = `
-  ${renderDevBar()}
   ${topHeader(S.client.activeStoreId ? '' : 'Bonjour 👋', S.client.activeStoreId ? '' : me.name)}
   ${body}
   <div class="h-24"></div>
   ${renderNav()}`;
 
-  bindDevBar(); bindHeader(); bindNav();
+  bindHeader(); bindNav();
   bindClient(me, meUser);
 }
 
@@ -1130,26 +1171,36 @@ function bindClient(me, meUser) {
 
 /* ---------------------- Root Render ---------------------- */
 function render() {
-  if (!S.config || !S.db) { renderSetup(); return; }
-  if (!S.role) {
-    $app.innerHTML = `
-    ${renderDevBar()}
-    <div class="px-5 pt-10 text-center">
-      <div class="w-16 h-16 mx-auto rounded-2xl bg-bazaar flex items-center justify-center shadow-pop mb-4">
-        <i class="fa-solid fa-basket-shopping text-white text-2xl"></i>
-      </div>
-      <h1 class="font-display font-black text-2xl">Sougi</h1>
-      <p class="text-inkfade text-sm mt-1 mb-6">Choisissez un profil dans le panneau de test ci-dessus pour commencer.</p>
+  if (!S.db) {
+    $app.innerHTML = `<div class="px-6 py-16 text-center text-clay">
+      <i class="fa-solid fa-triangle-exclamation text-2xl mb-3"></i>
+      <p class="text-sm font-semibold">Connexion à Firebase impossible.</p>
+      <p class="text-xs text-inkfade mt-1">Vérifiez la console pour plus de détails.</p>
     </div>`;
-    S.devBarOpen = true;
-    bindDevBar();
     return;
   }
+
+  // Not logged in: either the welcome/role picker, or mid-way through phone login/signup
+  if (!S.session) {
+    if (S.auth.pickedRole && S.auth.mode === 'phone') { renderPhoneAuth(); return; }
+    if (S.auth.pickedRole && S.auth.mode === 'signup') { renderSignup(); return; }
+    renderWelcome();
+    return;
+  }
+
+  // Logged in, waiting for the user's profile to arrive from Firestore
   if (!S.profiles[S.role]) {
-    $app.innerHTML = `${renderDevBar()}${renderLoginGate()}`;
-    bindDevBar(); bindLoginGate();
+    if (S.data.users.length > 0) {
+      // data has loaded and this session's user no longer exists — sign out
+      stopAll();
+      clearSession();
+      render();
+      return;
+    }
+    $app.innerHTML = `<div class="min-h-[100vh] flex items-center justify-center text-bazaar"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>`;
     return;
   }
+
   if (S.role === 'admin') renderAdmin();
   else if (S.role === 'grocery') renderGrocery();
   else if (S.role === 'agent') renderAgent();
@@ -1159,15 +1210,16 @@ function render() {
 /* ---------------------- Boot ---------------------- */
 (function boot() {
   loadLocal();
-  if (S.config) {
-    try {
-      initFirebase(S.config);
-      if (S.role) startListenersForRole();
-    } catch (err) {
-      console.error(err);
-      localStorage.removeItem('sougi_fb_config');
-      S.config = null;
-    }
+  try {
+    initFirebase(FIREBASE_CONFIG);
+  } catch (err) {
+    console.error(err);
+    render();
+    return;
+  }
+  if (S.session) {
+    S.role = S.session.role;
+    startListenersForRole();
   }
   render();
 })();
