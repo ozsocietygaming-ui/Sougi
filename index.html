@@ -1,594 +1,1170 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sougi - Marketplace Platform</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Cairo Font for a clean local tech feel -->
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Cairo', sans-serif; }
-        /* Smooth view switching transitions */
-        .view-panel { display: none; }
-        .view-panel.active { display: block; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nearby — Hyperlocal Marketplace</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  darkMode: 'class',
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Cairo', 'system-ui', 'sans-serif'] },
+      colors: {
+        brand: {
+          50:'#ecfdf5',100:'#d1fae5',200:'#a7f3d0',300:'#6ee7b7',400:'#34d399',
+          500:'#10b981',600:'#059669',700:'#047857',800:'#065f46',900:'#064e3b'
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { font-family: 'Cairo', system-ui, sans-serif; }
+  html, body { background: #020617; }
+  body {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16,185,129,0.18), transparent 60%),
+      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(99,102,241,0.12), transparent 60%),
+      #020617;
+    min-height: 100vh;
+    color: #e2e8f0;
+  }
+  .glass {
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(51, 65, 85, 0.5);
+  }
+  .glass-strong {
+    background: rgba(15, 23, 42, 0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(71, 85, 105, 0.6);
+  }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+  @keyframes slideIn { from { opacity:0; transform: translateX(40px); } to { opacity:1; transform: translateX(0); } }
+  @keyframes pulseSoft { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  @keyframes radarPing { 0%{transform:scale(0.6);opacity:0.8;} 100%{transform:scale(2.6);opacity:0;} }
+  @keyframes shimmer { 0%{background-position: -200% 0;} 100%{background-position: 200% 0;} }
+  .view { animation: fadeIn 0.35s ease-out; }
+  .toast { animation: slideIn 0.3s ease-out; }
+  .pulse-dot { animation: pulseSoft 2s ease-in-out infinite; }
+  .radar-ping { animation: radarPing 2s cubic-bezier(0,0,0.2,1) infinite; }
+  .skeleton {
+    background: linear-gradient(90deg, rgba(51,65,85,0.3) 25%, rgba(71,85,105,0.5) 50%, rgba(51,65,85,0.3) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #475569; }
+  .role-btn { transition: all 0.25s ease; }
+  .role-btn.active {
+    background: linear-gradient(135deg, #10b981, #047857);
+    color: white;
+    box-shadow: 0 8px 24px -6px rgba(16,185,129,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  .drawer { transition: transform 0.35s cubic-bezier(0.4,0,0.2,1); }
+  .drawer.closed { transform: translateX(100%); }
+  input, select, textarea { color-scheme: dark; }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(16,185,129,0.4);
+    border-color: rgba(16,185,129,0.6) !important;
+  }
+  .toggle-switch {
+    position: relative; width: 56px; height: 30px;
+    background: #334155; border-radius: 999px; cursor: pointer;
+    transition: background 0.3s; flex-shrink: 0;
+  }
+  .toggle-switch.on { background: linear-gradient(135deg, #10b981, #047857); }
+  .toggle-knob {
+    position: absolute; top: 3px; left: 3px;
+    width: 24px; height: 24px; background: white;
+    border-radius: 50%; transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  .toggle-switch.on .toggle-knob { transform: translateX(26px); }
+  .status-badge {
+    font-weight: 700; font-size: 0.65rem; padding: 0.3rem 0.65rem;
+    border-radius: 999px; display: inline-flex; align-items: center; gap: 0.3rem;
+    text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+  }
+  .store-card, .product-card, .order-card, .job-card { transition: all 0.2s ease; }
+  .store-card:hover { transform: translateY(-3px); border-color: rgba(16,185,129,0.5) !important; }
+</style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col">
+<body class="min-h-screen pb-16">
 
-    <!-- Persistent Role Switcher Bar -->
-    <header class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-lg tracking-wider text-white">S</div>
-                <span class="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">SOUGI</span>
-            </div>
-            <div class="flex bg-gray-950 p-1 rounded-xl border border-gray-800 shadow-inner">
-                <button id="btn-customer" class="role-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 bg-blue-600 text-white shadow">
-                    Customer View
-                </button>
-                <button id="btn-store" class="role-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-400 hover:text-gray-200">
-                    Store Panel
-                </button>
-                <button id="btn-driver" class="role-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-400 hover:text-gray-200">
-                    Driver Portal
-                </button>
-            </div>
+<!-- Role Switcher -->
+<header class="sticky top-0 z-40 glass-strong border-b border-slate-700/60">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/40">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-xl font-extrabold text-white leading-tight tracking-tight">Nearby<span class="text-brand-400">.</span></h1>
+        <p class="text-[11px] text-slate-400 leading-tight">Hyperlocal Marketplace Platform</p>
+      </div>
+    </div>
+    <nav class="flex items-center gap-1 p-1 rounded-2xl bg-slate-900/70 border border-slate-700/60">
+      <button class="role-btn active px-4 py-2 rounded-xl text-sm font-bold text-slate-300 flex items-center gap-2" data-role="customer">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>
+        <span class="hidden sm:inline">Customer</span>
+      </button>
+      <button class="role-btn px-4 py-2 rounded-xl text-sm font-bold text-slate-300 flex items-center gap-2" data-role="store">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l2-5h14l2 5"/><path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9"/><path d="M9 21V12h6v9"/></svg>
+        <span class="hidden sm:inline">Store</span>
+      </button>
+      <button class="role-btn px-4 py-2 rounded-xl text-sm font-bold text-slate-300 flex items-center gap-2" data-role="driver">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-1"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>
+        <span class="hidden sm:inline">Driver</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-6">
+  <section id="customerView" class="view"></section>
+  <section id="storeView" class="view hidden"></section>
+  <section id="driverView" class="view hidden"></section>
+</main>
+
+<!-- Cart Drawer -->
+<div id="cartOverlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden"></div>
+<aside id="cartDrawer" class="drawer closed fixed top-0 right-0 h-full w-full max-w-md z-50 glass-strong border-l border-slate-700/60 overflow-y-auto scrollbar-thin"></aside>
+
+<!-- Toasts -->
+<div id="toastContainer" class="fixed top-20 right-4 z-[60] space-y-2 max-w-sm pointer-events-none"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = { 
+  apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco", 
+  authDomain: "sougi-12109.firebaseapp.com", 
+  databaseURL: "https://sougi-12109-default-rtdb.europe-west1.firebasedatabase.app/",
+  projectId: "sougi-12109", 
+  storageBucket: "sougi-12109.firebasestorage.app", 
+  messagingSenderId: "1001716494860", 
+  appId: "1:1001716494860:web:a03facb4ab30499467f429" 
+};
+
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
+
+// ============ STATE ============
+const state = {
+  currentRole: 'customer',
+  storeId: localStorage.getItem('nb_store_id'),
+  driverId: localStorage.getItem('nb_driver_id'),
+  cart: [],
+  activeOrderId: localStorage.getItem('nb_active_order'),
+  stores: {},
+  storeOrders: {},
+  driverJobs: {},
+  driverProfile: null,
+  activeDriverOrder: null,
+  storeProfile: null,
+  unsubscribers: [],
+  selectedStoreId: null
+};
+
+if (!state.storeId) {
+  state.storeId = 'store_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  localStorage.setItem('nb_store_id', state.storeId);
+}
+if (!state.driverId) {
+  state.driverId = 'driver_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+  localStorage.setItem('nb_driver_id', state.driverId);
+}
+
+// ============ ICONS ============
+const I = {
+  cart: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/></svg>',
+  plus: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+  x: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  truck: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M14 9h4l4 4v4a1 1 0 0 1-1 1h-1"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+  package: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+  user: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  clock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  store: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l2-5h14l2 5"/><path d="M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9"/><path d="M9 21V12h6v9"/></svg>',
+  mapPin: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  trash: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  radar: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.07 4.93A10 10 0 0 1 22 12a10 10 0 0 1-2.93 7.07"/><path d="M4.93 4.93A10 10 0 0 0 2 12a10 10 0 0 0 2.93 7.07"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4"/><path d="M12 18v4"/></svg>',
+  arrow: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+  sparkles: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/></svg>'
+};
+
+// ============ UTILS ============
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const cfg = {
+    info:    { cls: 'bg-slate-800/90 border-slate-600 text-slate-100', icon: 'ℹ' },
+    success: { cls: 'bg-brand-900/90 border-brand-500 text-brand-100', icon: '✓' },
+    error:   { cls: 'bg-red-900/90 border-red-500 text-red-100', icon: '✕' },
+    warn:    { cls: 'bg-amber-900/90 border-amber-500 text-amber-100', icon: '!' }
+  };
+  const c = cfg[type] || cfg.info;
+  const toast = document.createElement('div');
+  toast.className = `toast pointer-events-auto px-4 py-3 rounded-xl border ${c.cls} shadow-2xl flex items-center gap-3 backdrop-blur-md`;
+  toast.innerHTML = `<span class="text-base font-bold w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">${c.icon}</span><span class="text-sm font-semibold">${escapeHtml(message)}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = 'opacity 0.3s, transform 0.3s';
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(40px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
+function fmtMoney(n) { return '$' + (Number(n) || 0).toFixed(2); }
+
+function statusLabel(status) {
+  const map = {
+    pending:            { label: 'Pending',          cls: 'bg-amber-500/15 text-amber-300 border border-amber-500/30' },
+    accepted:           { label: 'Accepted',          cls: 'bg-blue-500/15 text-blue-300 border border-blue-500/30' },
+    looking_for_driver: { label: 'Finding Driver',    cls: 'bg-purple-500/15 text-purple-300 border border-purple-500/30' },
+    delivering:         { label: 'Out for Delivery',  cls: 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30' },
+    completed:          { label: 'Completed',         cls: 'bg-brand-500/15 text-brand-300 border border-brand-500/30' }
+  };
+  return map[status] || { label: status, cls: 'bg-slate-500/15 text-slate-300 border border-slate-500/30' };
+}
+
+function statusTimeline(status) {
+  const order = ['pending','accepted','looking_for_driver','delivering','completed'];
+  const idx = order.indexOf(status);
+  return order.map((s, i) => ({ key: s, label: statusLabel(s).label, done: i <= idx, current: i === idx }));
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ============ ROLE SWITCHING ============
+function switchRole(role) {
+  state.currentRole = role;
+  state.unsubscribers.forEach(fn => { try { fn(); } catch(e){} });
+  state.unsubscribers = [];
+  state.selectedStoreId = null;
+  
+  document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+  const view = document.getElementById(role + 'View');
+  view.classList.remove('hidden');
+  // re-trigger animation
+  view.style.animation = 'none';
+  void view.offsetWidth;
+  view.style.animation = '';
+  
+  document.querySelectorAll('.role-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.role === role);
+  });
+  
+  if (role === 'customer') setupCustomerView();
+  else if (role === 'store') setupStoreView();
+  else if (role === 'driver') setupDriverView();
+}
+
+// ============ CUSTOMER VIEW ============
+function setupCustomerView() {
+  const view = document.getElementById('customerView');
+  view.innerHTML = `
+    <div class="mb-6 flex items-end justify-between flex-wrap gap-4">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-bold mb-2">
+          <span class="w-2 h-2 rounded-full bg-brand-400 pulse-dot"></span>
+          LIVE MARKETPLACE
         </div>
-    </header>
+        <h2 class="text-3xl font-extrabold text-white tracking-tight">Browse <span class="text-brand-400">Local Stores</span></h2>
+        <p class="text-slate-400 mt-1">Tap a store to see fresh products available near you.</p>
+      </div>
+      <button id="openCartBtn" class="relative px-5 py-3 bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-300 hover:to-brand-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-brand-500/30 flex items-center gap-2">
+        ${I.cart}<span>Cart</span>
+        <span id="cartCountBadge" class="absolute -top-2 -right-2 bg-amber-400 text-slate-900 text-xs font-extrabold rounded-full w-6 h-6 flex items-center justify-center shadow-lg" style="display:none">0</span>
+      </button>
+    </div>
+    <div id="orderTrackingSection"></div>
+    <div class="flex items-center justify-between mt-8 mb-4">
+      <h3 class="text-xl font-bold text-white">Stores Near You</h3>
+      <span id="storeCountLabel" class="text-sm text-slate-400">Loading...</span>
+    </div>
+    <div id="storesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      ${renderSkeletonCards(3)}
+    </div>
+  `;
+  
+  document.getElementById('openCartBtn').addEventListener('click', openCart);
+  updateCartBadge();
+  
+  const storesRef = ref(database, 'stores');
+  const unsub = onValue(storesRef, (snap) => {
+    state.stores = snap.val() || {};
+    renderStores();
+  });
+  state.unsubscribers.push(unsub);
+  
+  if (state.activeOrderId) listenToActiveOrder();
+  else renderOrderTracking(null);
+}
 
-    <!-- Main Dynamic Application Containers -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+function renderSkeletonCards(n) {
+  let html = '';
+  for (let i = 0; i < n; i++) {
+    html += `<div class="glass rounded-2xl p-5"><div class="h-20 rounded-xl skeleton mb-3"></div><div class="h-4 rounded skeleton mb-2 w-3/4"></div><div class="h-3 rounded skeleton w-1/2"></div></div>`;
+  }
+  return html;
+}
 
-        <!-- ================= CUSTOMER VIEW ================= -->
-        <section id="view-customer" class="view-panel active space-y-6">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Stores & Products Grid -->
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-xl font-bold mb-4 text-blue-400 flex items-center gap-2">
-                            🏪 Browse Nearby Stores
-                        </h2>
-                        <div id="customer-stores-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <!-- Injected Dynamically -->
-                            <p class="text-gray-500 text-sm italic col-span-2">No registered stores available yet.</p>
-                        </div>
-                    </div>
+function renderStores() {
+  const grid = document.getElementById('storesGrid');
+  const countLabel = document.getElementById('storeCountLabel');
+  const storeList = Object.entries(state.stores).filter(([id, s]) => s && s.name);
+  
+  if (countLabel) countLabel.textContent = `${storeList.length} store${storeList.length === 1 ? '' : 's'} online`;
+  
+  if (storeList.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full glass rounded-2xl p-10 text-center">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-800/60 flex items-center justify-center mb-4 text-slate-500">${I.store}</div>
+        <h4 class="text-lg font-bold text-white mb-1">No stores yet</h4>
+        <p class="text-slate-400 text-sm">Switch to the <strong class="text-brand-300">Store Panel</strong> to register your store and add products.</p>
+      </div>`;
+    return;
+  }
+  
+  grid.innerHTML = storeList.map(([id, s]) => {
+    const productCount = s.products ? Object.keys(s.products).length : 0;
+    return `
+      <button class="store-card text-left glass rounded-2xl p-5" data-store-id="${escapeHtml(id)}">
+        <div class="flex items-start justify-between mb-3">
+          <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-400/20 to-brand-600/10 border border-brand-500/30 flex items-center justify-center text-brand-300">${I.store}</div>
+          <span class="text-xs text-slate-400 px-2 py-1 rounded-full bg-slate-800/60 border border-slate-700/60">${productCount} item${productCount === 1 ? '' : 's'}</span>
+        </div>
+        <h4 class="text-lg font-bold text-white mb-1 truncate">${escapeHtml(s.name)}</h4>
+        <div class="flex items-center gap-1.5 text-xs text-slate-400">
+          <span class="text-brand-400">${I.mapPin}</span><span>Hyperlocal • Live inventory</span>
+        </div>
+        <div class="mt-4 flex items-center justify-between text-sm font-bold text-brand-300">
+          <span>View products</span><span>${I.arrow}</span>
+        </div>
+      </button>`;
+  }).join('');
+  
+  grid.querySelectorAll('.store-card').forEach(card => {
+    card.addEventListener('click', () => openStoreModal(card.dataset.storeId));
+  });
+}
 
-                    <div id="customer-products-panel" class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl hidden">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 id="selected-store-title" class="text-xl font-bold text-white">Products</h2>
-                            <button id="close-products-btn" class="text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded">Clear Selection</button>
-                        </div>
-                        <div id="customer-products-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <!-- Injected Dynamically -->
-                        </div>
-                    </div>
-                </div>
+function openStoreModal(storeId) {
+  state.selectedStoreId = storeId;
+  const store = state.stores[storeId];
+  if (!store) return;
+  closeStoreModal();
+  
+  const modal = document.createElement('div');
+  modal.id = 'storeModal';
+  modal.className = 'fixed inset-0 z-50 flex justify-end';
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-black/70 backdrop-blur-sm" id="storeModalOverlay"></div>
+    <div class="relative w-full max-w-lg glass-strong border-l border-slate-700/60 overflow-y-auto scrollbar-thin" style="animation: slideIn 0.3s ease-out;">
+      <div class="sticky top-0 z-10 glass-strong border-b border-slate-700/60 p-5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-300">${I.store}</div>
+          <div>
+            <h3 class="text-lg font-bold text-white">${escapeHtml(store.name)}</h3>
+            <p class="text-xs text-slate-400">${Object.keys(store.products || {}).length} products available</p>
+          </div>
+        </div>
+        <button id="closeStoreModal" class="w-9 h-9 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">${I.x}</button>
+      </div>
+      <div class="p-5 space-y-3" id="storeProductsList">${renderStoreProducts(store)}</div>
+    </div>`;
+  document.body.appendChild(modal);
+  document.body.style.overflow = 'hidden';
+  
+  modal.querySelector('#storeModalOverlay').addEventListener('click', closeStoreModal);
+  modal.querySelector('#closeStoreModal').addEventListener('click', closeStoreModal);
+  
+  modal.querySelectorAll('.add-to-cart-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.dataset.productId;
+      const pname = btn.dataset.productName;
+      const price = parseFloat(btn.dataset.productPrice);
+      addToCart(state.selectedStoreId, store.name, pid, pname, price);
+    });
+  });
+}
 
-                <!-- Cart & Realtime Order Tracking Drawer -->
-                <div class="space-y-6">
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col">
-                        <h2 class="text-xl font-bold mb-4 text-emerald-400 flex items-center gap-2">
-                            🛒 Shopping Cart
-                        </h2>
-                        <div id="cart-items" class="space-y-3 flex-1 overflow-y-auto max-h-60 mb-4 divide-y divide-gray-800">
-                            <p class="text-gray-500 text-sm italic py-2">Your cart is empty.</p>
-                        </div>
-                        <div class="border-t border-gray-800 pt-3 mb-4 flex justify-between items-center">
-                            <span class="text-gray-400">Total Amount:</span>
-                            <span id="cart-total" class="text-xl font-bold text-emerald-400">0.00 DZD</span>
-                        </div>
-                        <div class="space-y-2">
-                            <input type="text" id="cust-name-input" placeholder="Your Full Name" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 text-white">
-                            <button id="checkout-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 transition font-semibold text-sm py-2.5 rounded-xl shadow-lg shadow-emerald-900/20">
-                                Place Order (Cash on Delivery)
-                            </button>
-                        </div>
-                    </div>
+function closeStoreModal() {
+  const modal = document.getElementById('storeModal');
+  if (modal) modal.remove();
+  document.body.style.overflow = '';
+}
 
-                    <!-- Live Tracker -->
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-xl font-bold mb-4 text-purple-400 flex items-center gap-2">
-                            📍 Live Order Tracking
-                        </h2>
-                        <div id="customer-tracking-container" class="space-y-3">
-                            <p class="text-gray-500 text-sm italic">No active orders placed yet.</p>
-                        </div>
-                    </div>
-                </div>
+function renderStoreProducts(store) {
+  const products = store.products || {};
+  const entries = Object.entries(products);
+  if (entries.length === 0) {
+    return `<div class="text-center py-10 text-slate-400 text-sm">No products listed yet. Check back soon.</div>`;
+  }
+  return entries.map(([pid, p]) => `
+    <div class="product-card flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-brand-500/40">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-300 flex-shrink-0">${I.package}</div>
+        <div class="min-w-0">
+          <p class="font-semibold text-white truncate">${escapeHtml(p.name)}</p>
+          <p class="text-brand-300 font-bold text-sm">${fmtMoney(p.price)}</p>
+        </div>
+      </div>
+      <button class="add-to-cart-btn px-3 py-2 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-sm font-bold flex items-center gap-1 flex-shrink-0 transition-colors" data-product-id="${escapeHtml(pid)}" data-product-name="${escapeHtml(p.name)}" data-product-price="${escapeHtml(p.price)}">
+        ${I.plus} Add
+      </button>
+    </div>`).join('');
+}
+
+function addToCart(storeId, storeName, productId, productName, price) {
+  if (state.cart.length > 0 && state.cart[0].storeId !== storeId) {
+    const ok = window.confirm(`Your cart contains items from another store. Replace with items from "${storeName}"?`);
+    if (!ok) return;
+    state.cart = [];
+  }
+  const existing = state.cart.find(i => i.productId === productId);
+  if (existing) existing.qty += 1;
+  else state.cart.push({ storeId, storeName, productId, productName, price, qty: 1 });
+  updateCartBadge();
+  showToast(`${productName} added to cart`, 'success');
+}
+
+function updateCartBadge() {
+  const badge = document.getElementById('cartCountBadge');
+  if (!badge) return;
+  const count = state.cart.reduce((sum, i) => sum + i.qty, 0);
+  badge.textContent = String(count);
+  badge.style.display = count > 0 ? 'flex' : 'none';
+}
+
+function openCart() {
+  renderCart();
+  document.getElementById('cartDrawer').classList.remove('closed');
+  document.getElementById('cartOverlay').classList.remove('hidden');
+}
+
+function closeCart() {
+  document.getElementById('cartDrawer').classList.add('closed');
+  document.getElementById('cartOverlay').classList.add('hidden');
+}
+
+function renderCart() {
+  const drawer = document.getElementById('cartDrawer');
+  const items = state.cart;
+  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
+  
+  drawer.innerHTML = `
+    <div class="sticky top-0 z-10 glass-strong border-b border-slate-700/60 p-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-brand-500/15 border border-brand-500/30 flex items-center justify-center text-brand-300">${I.cart}</div>
+        <div>
+          <h3 class="text-lg font-bold text-white">Your Cart</h3>
+          <p class="text-xs text-slate-400">${items.length} unique item${items.length === 1 ? '' : 's'}</p>
+        </div>
+      </div>
+      <button id="closeCartBtn" class="w-9 h-9 rounded-lg bg-slate-800/60 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">${I.x}</button>
+    </div>
+    ${items.length === 0 ? `
+      <div class="p-10 text-center">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-800/60 flex items-center justify-center mb-4 text-slate-500">${I.cart}</div>
+        <h4 class="text-lg font-bold text-white mb-1">Cart is empty</h4>
+        <p class="text-slate-400 text-sm">Browse stores and add products to get started.</p>
+      </div>
+    ` : `
+      <div class="p-5 space-y-3">
+        ${items.map((item, idx) => `
+          <div class="p-3 rounded-xl bg-slate-800/40 border border-slate-700/50">
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <div class="min-w-0">
+                <p class="font-semibold text-white truncate">${escapeHtml(item.productName)}</p>
+                <p class="text-xs text-slate-400 truncate">${escapeHtml(item.storeName)}</p>
+              </div>
+              <button class="remove-cart-item text-slate-400 hover:text-red-400 transition-colors" data-idx="${idx}">${I.trash}</button>
             </div>
-        </section>
-
-        <!-- ================= STORE PANEL ================= -->
-        <section id="view-store" class="view-panel space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Manage Identity & Inventory -->
-                <div class="space-y-6">
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-lg font-bold mb-4 text-green-400">Store Settings</h2>
-                        <div class="space-y-3">
-                            <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold">Store Identifier (Slug)</label>
-                            <input type="text" id="store-id-input" value="my-store-1" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
-                            <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold">Display Name</label>
-                            <input type="text" id="store-name-input" placeholder="e.g., Fast Delivery Hub" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
-                            <button id="save-store-btn" class="w-full bg-green-600 hover:bg-green-500 font-semibold text-sm py-2 rounded-xl transition">
-                                Register / Sync Store
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-lg font-bold mb-4 text-green-400">Add New Product</h2>
-                        <div class="space-y-3">
-                            <input type="text" id="prod-name-input" placeholder="Product Name" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
-                            <input type="number" id="prod-price-input" placeholder="Price (DZD)" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
-                            <button id="add-product-btn" class="w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 font-semibold text-sm py-2 rounded-xl transition">
-                                Save Product to Catalog
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Incoming Orders Feed -->
-                <div class="md:col-span-2 bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                    <h2 class="text-xl font-bold mb-4 text-green-400 flex items-center gap-2">
-                        📥 Live Store Orders
-                    </h2>
-                    <div id="store-orders-container" class="space-y-4">
-                        <p class="text-gray-500 text-sm italic">Register and sync your store to receive incoming live feeds.</p>
-                    </div>
-                </div>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <button class="qty-dec w-8 h-8 rounded-lg bg-slate-700/60 hover:bg-slate-600 text-white font-bold transition-colors" data-idx="${idx}">−</button>
+                <span class="w-8 text-center font-bold text-white">${item.qty}</span>
+                <button class="qty-inc w-8 h-8 rounded-lg bg-slate-700/60 hover:bg-slate-600 text-white font-bold transition-colors" data-idx="${idx}">+</button>
+              </div>
+              <span class="font-bold text-brand-300">${fmtMoney(item.price * item.qty)}</span>
             </div>
-        </section>
+          </div>`).join('')}
+      </div>
+      <div class="p-5 border-t border-slate-700/60 glass-strong">
+        <div class="flex items-center justify-between mb-1 text-sm">
+          <span class="text-slate-400">Subtotal</span><span class="text-slate-200 font-semibold">${fmtMoney(total)}</span>
+        </div>
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-slate-400 text-sm">Payment</span>
+          <span class="text-brand-300 font-semibold text-sm flex items-center gap-1">Cash on Delivery</span>
+        </div>
+        <div class="flex items-center justify-between mb-4 pb-4 border-b border-slate-700/60">
+          <span class="text-white font-bold">Total</span>
+          <span class="text-2xl font-extrabold text-white">${fmtMoney(total)}</span>
+        </div>
+        <form id="checkoutForm" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Customer Name</label>
+            <input id="checkoutName" type="text" required placeholder="Enter your name" class="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-700/60 text-white placeholder-slate-500 text-sm" />
+          </div>
+          <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-300 hover:to-brand-500 text-white font-bold transition-all shadow-lg shadow-brand-500/30 flex items-center justify-center gap-2">
+            ${I.check} Place Order • ${fmtMoney(total)}
+          </button>
+        </form>
+      </div>`}`;
+  
+  document.getElementById('closeCartBtn').addEventListener('click', closeCart);
+  drawer.querySelectorAll('.remove-cart-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.cart.splice(parseInt(btn.dataset.idx), 1);
+      updateCartBadge();
+      renderCart();
+    });
+  });
+  drawer.querySelectorAll('.qty-inc').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.cart[parseInt(btn.dataset.idx)].qty += 1;
+      updateCartBadge();
+      renderCart();
+    });
+  });
+  drawer.querySelectorAll('.qty-dec').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      state.cart[idx].qty -= 1;
+      if (state.cart[idx].qty <= 0) state.cart.splice(idx, 1);
+      updateCartBadge();
+      renderCart();
+    });
+  });
+  const form = document.getElementById('checkoutForm');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      placeOrder(document.getElementById('checkoutName').value.trim());
+    });
+  }
+}
 
-        <!-- ================= DRIVER PORTAL ================= -->
-        <section id="view-driver" class="view-panel space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Driver Status Controller -->
-                <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl space-y-4">
-                    <h2 class="text-lg font-bold text-yellow-500">Driver Parameters</h2>
-                    <div>
-                        <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Driver Profile Name</label>
-                        <input type="text" id="driver-name-input" value="Driver_Alpha" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
-                    </div>
-                    <div class="flex items-center justify-between p-3 bg-gray-950 rounded-xl border border-gray-800">
-                        <span class="text-sm font-medium">Availability Status</span>
-                        <button id="driver-status-toggle" class="px-4 py-1.5 rounded-lg text-xs font-bold transition bg-red-900 text-red-200 border border-red-700">
-                            OFFLINE
-                        </button>
-                    </div>
-                    <p class="text-xs text-gray-500 leading-relaxed">Toggle your status to ONLINE to poll system pipelines for newly confirmed warehouse delivery dispatch notifications.</p>
-                </div>
+function placeOrder(customerName) {
+  if (!customerName) { showToast('Please enter your name', 'error'); return; }
+  if (state.cart.length === 0) { showToast('Cart is empty', 'error'); return; }
+  
+  const total = state.cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const items = state.cart.map(i => ({ name: i.productName, price: i.price, qty: i.qty }));
+  const storeId = state.cart[0].storeId;
+  const storeName = state.cart[0].storeName;
+  
+  const ordersRef = ref(database, 'orders');
+  const newOrderRef = push(ordersRef);
+  const orderId = newOrderRef.key;
+  
+  const order = {
+    customerName, items, total,
+    status: 'pending',
+    storeId, storeName,
+    driverId: null,
+    createdAt: Date.now()
+  };
+  
+  set(newOrderRef, order).then(() => {
+    state.activeOrderId = orderId;
+    localStorage.setItem('nb_active_order', orderId);
+    state.cart = [];
+    updateCartBadge();
+    closeCart();
+    showToast('Order placed! Track it below.', 'success');
+    listenToActiveOrder();
+  }).catch(err => showToast('Failed to place order: ' + err.message, 'error'));
+}
 
-                <!-- Available Delivery Jobs Board -->
-                <div class="md:col-span-2 bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                    <h2 class="text-xl font-bold mb-4 text-yellow-500 flex items-center gap-2">
-                        🛰️ Available Dispatch Radar Jobs
-                    </h2>
-                    <div id="driver-jobs-container" class="space-y-4">
-                        <p class="text-gray-500 text-sm italic">Set your profile status to ONLINE to receive incoming open requests.</p>
-                    </div>
-                </div>
+function listenToActiveOrder() {
+  if (!state.activeOrderId) { renderOrderTracking(null); return; }
+  const orderRef = ref(database, 'orders/' + state.activeOrderId);
+  const unsub = onValue(orderRef, (snap) => {
+    const order = snap.val();
+    if (!order) {
+      state.activeOrderId = null;
+      localStorage.removeItem('nb_active_order');
+      renderOrderTracking(null);
+      return;
+    }
+    renderOrderTracking({ id: state.activeOrderId, ...order });
+  });
+  state.unsubscribers.push(unsub);
+}
+
+function renderOrderTracking(order) {
+  const section = document.getElementById('orderTrackingSection');
+  if (!section) return;
+  if (!order) { section.innerHTML = ''; return; }
+  
+  const tl = statusTimeline(order.status);
+  const sLabel = statusLabel(order.status);
+  const isCompleted = order.status === 'completed';
+  
+  section.innerHTML = `
+    <div class="glass rounded-2xl p-5 mb-6 border ${isCompleted ? 'border-brand-500/40' : 'border-brand-500/20'}" style="animation: fadeIn 0.4s ease-out;">
+      <div class="flex items-start justify-between flex-wrap gap-3 mb-5">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-xs font-bold text-slate-400 tracking-wider">ORDER TRACKING</span>
+            <span class="status-badge ${sLabel.cls}">${sLabel.label}</span>
+          </div>
+          <h3 class="text-xl font-bold text-white">${isCompleted ? 'Order delivered! 🎉' : `Hi ${escapeHtml(order.customerName)}, your order is being prepared`}</h3>
+          <p class="text-xs text-slate-400 mt-1">Order ID: <span class="font-mono text-slate-300">${escapeHtml(order.id.slice(-8))}</span> • From ${escapeHtml(order.storeName || 'Store')}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-slate-400">Total</p>
+          <p class="text-2xl font-extrabold text-white">${fmtMoney(order.total)}</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-5 gap-2 mb-5">
+        ${tl.map(step => `
+          <div class="text-center">
+            <div class="mx-auto w-9 h-9 rounded-full flex items-center justify-center mb-1.5 ${step.done ? 'bg-brand-500 text-white' : 'bg-slate-800 text-slate-500'} ${step.current ? 'ring-4 ring-brand-500/30' : ''}">
+              ${step.done ? I.check : ''}
             </div>
-        </section>
+            <p class="text-[10px] font-bold ${step.done ? 'text-brand-300' : 'text-slate-500'} leading-tight">${step.label}</p>
+          </div>`).join('')}
+      </div>
+      <div class="bg-slate-900/40 rounded-xl p-3 border border-slate-700/50">
+        <p class="text-xs text-slate-400 mb-2 font-semibold">Items</p>
+        <div class="space-y-1">
+          ${(order.items || []).map(it => `
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-slate-200">${escapeHtml(it.qty)}× ${escapeHtml(it.name)}</span>
+              <span class="text-slate-300 font-semibold">${fmtMoney(it.price * it.qty)}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+      ${isCompleted ? `
+        <button id="startNewOrderBtn" class="mt-4 w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors border border-slate-700/60">
+          ${I.plus} Start a New Order
+        </button>` : ''}
+    </div>`;
+  
+  const newBtn = document.getElementById('startNewOrderBtn');
+  if (newBtn) {
+    newBtn.addEventListener('click', () => {
+      state.activeOrderId = null;
+      localStorage.removeItem('nb_active_order');
+      renderOrderTracking(null);
+      showToast('Ready for a new order', 'info');
+    });
+  }
+}
 
-    </main>
+// ============ STORE PANEL ============
+function setupStoreView() {
+  const view = document.getElementById('storeView');
+  view.innerHTML = `
+    <div class="mb-6">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs font-bold mb-2">
+        <span class="w-2 h-2 rounded-full bg-blue-400 pulse-dot"></span>
+        STORE PANEL
+      </div>
+      <h2 class="text-3xl font-extrabold text-white tracking-tight">Manage Your <span class="text-brand-400">Store</span></h2>
+      <p class="text-slate-400 mt-1">Update your profile, add products, and accept incoming orders in real-time.</p>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="space-y-4">
+        <div class="glass rounded-2xl p-5">
+          <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">${I.store} Store Profile</h3>
+          <form id="storeProfileForm" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Store Name</label>
+              <input id="storeNameInput" type="text" required placeholder="e.g. Fresh Mart Downtown" class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 text-white placeholder-slate-500 text-sm" />
+            </div>
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-300 hover:to-brand-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-500/20">
+              ${I.check} Save Store Profile
+            </button>
+          </form>
+          <p class="mt-3 text-xs text-slate-500">Store ID: <span class="font-mono text-slate-400">${escapeHtml(state.storeId.slice(-10))}</span></p>
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <h3 class="text-lg font-bold text-white mb-3 flex items-center gap-2">${I.plus} Add Product</h3>
+          <form id="addProductForm" class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Product Name</label>
+              <input id="productNameInput" type="text" required placeholder="e.g. Fresh Croissant" class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 text-white placeholder-slate-500 text-sm" />
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Price ($)</label>
+              <input id="productPriceInput" type="number" step="0.01" min="0" required placeholder="0.00" class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 text-white placeholder-slate-500 text-sm" />
+            </div>
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm flex items-center justify-center gap-2 border border-slate-700/60 transition-colors">
+              ${I.plus} Add to Inventory
+            </button>
+          </form>
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">${I.package} Inventory</h3>
+          <span id="productCount" class="text-xs text-slate-400 px-2 py-1 rounded-full bg-slate-800/60 border border-slate-700/60">0 items</span>
+        </div>
+        <div id="storeProductsContainer" class="space-y-2 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
+          <div class="text-center py-8 text-slate-500 text-sm">Loading inventory...</div>
+        </div>
+      </div>
+      <div class="glass rounded-2xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2">${I.clock} Incoming Orders</h3>
+          <span id="ordersCount" class="text-xs text-slate-400 px-2 py-1 rounded-full bg-slate-800/60 border border-slate-700/60">0</span>
+        </div>
+        <div id="storeOrdersContainer" class="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin pr-1">
+          <div class="text-center py-8 text-slate-500 text-sm">Listening for orders...</div>
+        </div>
+      </div>
+    </div>`;
+  
+  document.getElementById('storeProfileForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('storeNameInput').value.trim();
+    if (!name) return;
+    update(ref(database, 'stores/' + state.storeId), { name })
+      .then(() => showToast('Store profile saved', 'success'))
+      .catch(err => showToast('Error: ' + err.message, 'error'));
+  });
+  
+  document.getElementById('addProductForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('productNameInput').value.trim();
+    const price = parseFloat(document.getElementById('productPriceInput').value);
+    if (!name || isNaN(price)) return;
+    if (!state.storeProfile || !state.storeProfile.name) {
+      showToast('Save your store name first', 'warn');
+      return;
+    }
+    const newProdRef = push(ref(database, 'stores/' + state.storeId + '/products'));
+    set(newProdRef, { name, price })
+      .then(() => {
+        showToast('Product added to inventory', 'success');
+        document.getElementById('addProductForm').reset();
+      })
+      .catch(err => showToast('Error: ' + err.message, 'error'));
+  });
+  
+  const unsub1 = onValue(ref(database, 'stores/' + state.storeId), (snap) => {
+    state.storeProfile = snap.val() || {};
+    if (state.storeProfile.name) {
+      const input = document.getElementById('storeNameInput');
+      if (input && !input.value) input.value = state.storeProfile.name;
+    }
+    renderStoreProducts();
+  });
+  state.unsubscribers.push(unsub1);
+  
+  const unsub2 = onValue(ref(database, 'orders'), (snap) => {
+    const all = snap.val() || {};
+    state.storeOrders = Object.entries(all)
+      .filter(([id, o]) => o.storeId === state.storeId)
+      .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0))
+      .reduce((acc, [id, o]) => { acc[id] = o; return acc; }, {});
+    renderStoreOrders();
+  });
+  state.unsubscribers.push(unsub2);
+}
 
-    <footer class="bg-gray-900 border-t border-gray-800 text-center py-4 text-xs text-gray-500">
-        Sougi Multi-Role Infrastructure Framework Engine.
-    </footer>
+function renderStoreProducts() {
+  const container = document.getElementById('storeProductsContainer');
+  if (!container) return;
+  const products = (state.storeProfile && state.storeProfile.products) || {};
+  const entries = Object.entries(products);
+  const countLabel = document.getElementById('productCount');
+  if (countLabel) countLabel.textContent = `${entries.length} item${entries.length === 1 ? '' : 's'}`;
+  
+  if (entries.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-8">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-800/60 flex items-center justify-center mb-2 text-slate-500">${I.package}</div>
+        <p class="text-slate-500 text-sm">No products yet. Add your first product.</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = entries.map(([pid, p]) => `
+    <div class="product-card flex items-center justify-between p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 hover:border-slate-600">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-lg bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-300 flex-shrink-0">${I.package}</div>
+        <div class="min-w-0">
+          <p class="font-semibold text-white truncate text-sm">${escapeHtml(p.name)}</p>
+          <p class="text-brand-300 font-bold text-sm">${fmtMoney(p.price)}</p>
+        </div>
+      </div>
+      <button class="delete-product w-8 h-8 rounded-lg bg-slate-800/60 hover:bg-red-500/20 text-slate-400 hover:text-red-400 flex items-center justify-center flex-shrink-0 transition-colors" data-pid="${escapeHtml(pid)}">${I.trash}</button>
+    </div>`).join('');
+  
+  container.querySelectorAll('.delete-product').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('Delete this product?')) return;
+      set(ref(database, 'stores/' + state.storeId + '/products/' + btn.dataset.pid), null)
+        .then(() => showToast('Product removed', 'info'))
+        .catch(err => showToast('Error: ' + err.message, 'error'));
+    });
+  });
+}
 
-    <!-- Firebase Script Configuration Block Bundle -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+function renderStoreOrders() {
+  const container = document.getElementById('storeOrdersContainer');
+  if (!container) return;
+  const orders = Object.entries(state.storeOrders);
+  const countLabel = document.getElementById('ordersCount');
+  if (countLabel) countLabel.textContent = String(orders.length);
+  
+  if (orders.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-8">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-800/60 flex items-center justify-center mb-2 text-slate-500">${I.clock}</div>
+        <p class="text-slate-500 text-sm">No incoming orders yet.</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = orders.map(([oid, o]) => {
+    const sLabel = statusLabel(o.status);
+    let action = '';
+    if (o.status === 'pending') {
+      action = `<button class="accept-order-btn w-full py-2 rounded-lg bg-brand-500 hover:bg-brand-400 text-white font-bold text-sm flex items-center justify-center gap-1 transition-colors" data-oid="${escapeHtml(oid)}">${I.check} Accept Order</button>`;
+    } else if (o.status === 'accepted') {
+      action = `<button class="find-driver-btn w-full py-2 rounded-lg bg-purple-500 hover:bg-purple-400 text-white font-bold text-sm flex items-center justify-center gap-1 transition-colors" data-oid="${escapeHtml(oid)}">${I.truck} Find Available Driver</button>`;
+    } else if (o.status === 'looking_for_driver') {
+      action = `<div class="text-center py-2 text-purple-300 text-xs font-bold flex items-center justify-center gap-2"><span class="w-2 h-2 rounded-full bg-purple-400 pulse-dot"></span> Searching for driver...</div>`;
+    } else if (o.status === 'delivering') {
+      action = `<div class="text-center py-2 text-cyan-300 text-xs font-bold flex items-center justify-center gap-2">${I.truck} Out for delivery</div>`;
+    } else if (o.status === 'completed') {
+      action = `<div class="text-center py-2 text-brand-300 text-xs font-bold flex items-center justify-center gap-2">${I.check} Completed</div>`;
+    }
+    return `
+      <div class="order-card p-3 rounded-xl bg-slate-800/40 border border-slate-700/50 ${o.status === 'pending' ? 'ring-1 ring-amber-500/40' : ''}">
+        <div class="flex items-start justify-between mb-2">
+          <div>
+            <p class="font-bold text-white text-sm">${escapeHtml(o.customerName)}</p>
+            <p class="text-[10px] text-slate-500 font-mono">#${escapeHtml(oid.slice(-8))}</p>
+          </div>
+          <span class="status-badge ${sLabel.cls}">${sLabel.label}</span>
+        </div>
+        <div class="bg-slate-900/40 rounded-lg p-2 mb-2 space-y-0.5">
+          ${(o.items || []).map(it => `
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">${escapeHtml(it.qty)}× ${escapeHtml(it.name)}</span>
+              <span class="text-slate-400">${fmtMoney(it.price * it.qty)}</span>
+            </div>`).join('')}
+        </div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs text-slate-400">Total</span>
+          <span class="font-bold text-white">${fmtMoney(o.total)}</span>
+        </div>
+        ${action}
+      </div>`;
+  }).join('');
+  
+  container.querySelectorAll('.accept-order-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      update(ref(database, 'orders/' + btn.dataset.oid), { status: 'accepted' })
+        .then(() => showToast('Order accepted', 'success'))
+        .catch(err => showToast('Error: ' + err.message, 'error'));
+    });
+  });
+  container.querySelectorAll('.find-driver-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      update(ref(database, 'orders/' + btn.dataset.oid), { status: 'looking_for_driver' })
+        .then(() => showToast('Searching for available drivers...', 'info'))
+        .catch(err => showToast('Error: ' + err.message, 'error'));
+    });
+  });
+}
 
-        // Verified Application Target Injector with European Region Database URL Route
-        const firebaseConfig = { 
-            apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco", 
-            authDomain: "sougi-12109.firebaseapp.com", 
-            databaseURL: "https://sougi-12109-default-rtdb.europe-west1.firebasedatabase.app/",
-            projectId: "sougi-12109", 
-            storageBucket: "sougi-12109.firebasestorage.app", 
-            messagingSenderId: "1001716494860", 
-            appId: "1:1001716494860:web:a03facb4ab30499467f429" 
-        };
+// ============ DRIVER PORTAL ============
+function setupDriverView() {
+  const view = document.getElementById('driverView');
+  view.innerHTML = `
+    <div class="mb-6">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold mb-2">
+        <span class="w-2 h-2 rounded-full bg-cyan-400 pulse-dot"></span>
+        DRIVER PORTAL
+      </div>
+      <h2 class="text-3xl font-extrabold text-white tracking-tight">Delivery <span class="text-brand-400">Command Center</span></h2>
+      <p class="text-slate-400 mt-1">Go online to receive nearby delivery jobs in real-time.</p>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="space-y-4">
+        <div class="glass rounded-2xl p-5">
+          <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">${I.user} Driver Profile</h3>
+          <form id="driverProfileForm" class="space-y-3 mb-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1">Driver Name</label>
+              <input id="driverNameInput" type="text" required placeholder="Your name" class="w-full px-4 py-2.5 rounded-xl bg-slate-900/60 border border-slate-700/60 text-white placeholder-slate-500 text-sm" />
+            </div>
+            <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-300 hover:to-brand-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-500/20">
+              ${I.check} Save Profile
+            </button>
+          </form>
+          <div class="border-t border-slate-700/60 pt-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-bold text-white">Availability</p>
+                <p id="driverStatusText" class="text-xs text-slate-400">Offline</p>
+              </div>
+              <div id="driverToggle" class="toggle-switch"><div class="toggle-knob"></div></div>
+            </div>
+          </div>
+          <p class="mt-3 text-xs text-slate-500">Driver ID: <span class="font-mono text-slate-400">${escapeHtml(state.driverId.slice(-10))}</span></p>
+        </div>
+        <div class="glass rounded-2xl p-5">
+          <h3 class="text-sm font-bold text-white mb-3 flex items-center gap-2">${I.radar} Radar Status</h3>
+          <div id="driverRadarStatus" class="text-center py-4">
+            <div class="w-14 h-14 mx-auto rounded-full bg-slate-800/60 flex items-center justify-center mb-2 text-slate-500">${I.radar}</div>
+            <p class="text-slate-400 text-sm">Offline</p>
+          </div>
+        </div>
+      </div>
+      <div class="lg:col-span-2 space-y-4">
+        <div id="activeDeliverySection"></div>
+        <div class="glass rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">${I.radar} Available Delivery Jobs</h3>
+            <span id="jobsCount" class="text-xs text-slate-400 px-2 py-1 rounded-full bg-slate-800/60 border border-slate-700/60">0 jobs</span>
+          </div>
+          <div id="jobsContainer" class="space-y-3">
+            <div class="text-center py-12 text-slate-500 text-sm">Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  
+  document.getElementById('driverProfileForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('driverNameInput').value.trim();
+    if (!name) return;
+    update(ref(database, 'drivers/' + state.driverId), { name })
+      .then(() => showToast('Driver profile saved', 'success'))
+      .catch(err => showToast('Error: ' + err.message, 'error'));
+  });
+  
+  document.getElementById('driverToggle').addEventListener('click', () => {
+    if (!state.driverProfile || !state.driverProfile.name) {
+      showToast('Save your driver name first', 'warn');
+      return;
+    }
+    const current = state.driverProfile.status || 'offline';
+    if (current === 'busy') {
+      showToast('Complete your active delivery first', 'warn');
+      return;
+    }
+    const newStatus = current === 'available' ? 'offline' : 'available';
+    update(ref(database, 'drivers/' + state.driverId), { status: newStatus })
+      .then(() => showToast(newStatus === 'available' ? 'You are now online' : 'You are offline', 'info'))
+      .catch(err => showToast('Error: ' + err.message, 'error'));
+  });
+  
+  const unsub1 = onValue(ref(database, 'drivers/' + state.driverId), (snap) => {
+    state.driverProfile = snap.val() || { name: '', status: 'offline' };
+    renderDriverProfile();
+    renderJobs();
+  });
+  state.unsubscribers.push(unsub1);
+  
+  const unsub2 = onValue(ref(database, 'orders'), (snap) => {
+    const all = snap.val() || {};
+    state.driverJobs = Object.entries(all)
+      .filter(([id, o]) => o.status === 'looking_for_driver')
+      .sort((a, b) => (a[1].createdAt || 0) - (b[1].createdAt || 0))
+      .reduce((acc, [id, o]) => { acc[id] = o; return acc; }, {});
+    const active = Object.entries(all).find(([id, o]) => o.driverId === state.driverId && o.status === 'delivering');
+    state.activeDriverOrder = active ? { id: active[0], ...active[1] } : null;
+    renderJobs();
+    renderActiveDelivery();
+  });
+  state.unsubscribers.push(unsub2);
+}
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
+function renderDriverProfile() {
+  const toggle = document.getElementById('driverToggle');
+  const statusText = document.getElementById('driverStatusText');
+  const radarStatus = document.getElementById('driverRadarStatus');
+  const nameInput = document.getElementById('driverNameInput');
+  
+  if (!state.driverProfile) return;
+  if (state.driverProfile.name && nameInput && !nameInput.value) nameInput.value = state.driverProfile.name;
+  
+  const status = state.driverProfile.status || 'offline';
+  if (toggle) toggle.classList.toggle('on', status === 'available' || status === 'busy');
+  if (statusText) {
+    const map = { available: 'Online — Ready for jobs', offline: 'Offline', busy: 'Busy — On delivery' };
+    statusText.textContent = map[status] || 'Offline';
+  }
+  if (radarStatus) {
+    if (status === 'available') {
+      radarStatus.innerHTML = `
+        <div class="relative w-14 h-14 mx-auto mb-2">
+          <div class="absolute inset-0 rounded-full bg-cyan-500/20 radar-ping"></div>
+          <div class="absolute inset-0 rounded-full bg-cyan-500/30 radar-ping" style="animation-delay: 0.7s"></div>
+          <div class="relative w-14 h-14 rounded-full bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center text-cyan-300">${I.radar}</div>
+        </div>
+        <p class="text-cyan-300 text-sm font-bold">Scanning for jobs...</p>`;
+    } else if (status === 'busy') {
+      radarStatus.innerHTML = `
+        <div class="w-14 h-14 mx-auto rounded-full bg-amber-500/20 border border-amber-500/50 flex items-center justify-center mb-2 text-amber-300">${I.truck}</div>
+        <p class="text-amber-300 text-sm font-bold">On active delivery</p>`;
+    } else {
+      radarStatus.innerHTML = `
+        <div class="w-14 h-14 mx-auto rounded-full bg-slate-800/60 flex items-center justify-center mb-2 text-slate-500">${I.radar}</div>
+        <p class="text-slate-400 text-sm">Offline</p>`;
+    }
+  }
+}
 
-        // Client State Variables
-        let currentStoreSelection = null;
-        let localCart = [];
-        let isDriverOnline = false;
+function renderJobs() {
+  const container = document.getElementById('jobsContainer');
+  if (!container) return;
+  const jobs = Object.entries(state.driverJobs);
+  const countLabel = document.getElementById('jobsCount');
+  if (countLabel) countLabel.textContent = `${jobs.length} job${jobs.length === 1 ? '' : 's'}`;
+  
+  const isAvailable = state.driverProfile && state.driverProfile.status === 'available';
+  
+  if (!isAvailable) {
+    const isBusy = state.driverProfile && state.driverProfile.status === 'busy';
+    container.innerHTML = `
+      <div class="text-center py-12">
+        <div class="w-14 h-14 mx-auto rounded-full bg-slate-800/60 flex items-center justify-center mb-3 text-slate-500">${I.radar}</div>
+        <p class="text-slate-400 text-sm font-bold mb-1">${isBusy ? 'Complete your active delivery first' : 'Go online to see available jobs'}</p>
+        <p class="text-slate-500 text-xs">${isBusy ? 'Delivery in progress' : 'Toggle availability to start receiving deliveries'}</p>
+      </div>`;
+    return;
+  }
+  if (jobs.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12">
+        <div class="relative w-14 h-14 mx-auto mb-3">
+          <div class="absolute inset-0 rounded-full bg-cyan-500/20 radar-ping"></div>
+          <div class="absolute inset-0 rounded-full bg-cyan-500/30 radar-ping" style="animation-delay: 0.7s"></div>
+          <div class="relative w-14 h-14 rounded-full bg-cyan-500/20 border border-cyan-500/50 flex items-center justify-center text-cyan-300">${I.radar}</div>
+        </div>
+        <p class="text-cyan-300 text-sm font-bold mb-1">Scanning for jobs...</p>
+        <p class="text-slate-500 text-xs">No deliveries available right now. Stay tuned.</p>
+      </div>`;
+    return;
+  }
+  container.innerHTML = jobs.map(([jid, o]) => {
+    const storeName = o.storeName || 'Store';
+    return `
+      <div class="job-card p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-transparent border border-purple-500/30 hover:border-purple-500/60">
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="status-badge bg-purple-500/15 text-purple-300 border border-purple-500/30">${I.sparkles} New Job</span>
+              <span class="text-[10px] text-slate-500 font-mono">#${escapeHtml(jid.slice(-8))}</span>
+            </div>
+            <p class="font-bold text-white">${escapeHtml(o.customerName)}</p>
+            <p class="text-xs text-slate-400">From: ${escapeHtml(storeName)}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-slate-400">Payout</p>
+            <p class="text-xl font-extrabold text-brand-300">${fmtMoney(o.total)}</p>
+          </div>
+        </div>
+        <div class="bg-slate-900/40 rounded-lg p-2 mb-3 space-y-0.5">
+          ${(o.items || []).map(it => `
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-300">${escapeHtml(it.qty)}× ${escapeHtml(it.name)}</span>
+              <span class="text-slate-500">${fmtMoney(it.price * it.qty)}</span>
+            </div>`).join('')}
+        </div>
+        <button class="accept-job-btn w-full py-2.5 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-300 hover:to-brand-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-500/20" data-jid="${escapeHtml(jid)}">
+          ${I.check} Accept Delivery Job
+        </button>
+      </div>`;
+  }).join('');
+  
+  container.querySelectorAll('.accept-job-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const jid = btn.dataset.jid;
+      const updates = {};
+      updates['orders/' + jid + '/status'] = 'delivering';
+      updates['orders/' + jid + '/driverId'] = state.driverId;
+      updates['drivers/' + state.driverId + '/status'] = 'busy';
+      updates['drivers/' + state.driverId + '/activeOrderId'] = jid;
+      update(ref(database), updates)
+        .then(() => showToast('Job accepted! Start delivery.', 'success'))
+        .catch(err => showToast('Error: ' + err.message, 'error'));
+    });
+  });
+}
 
-        // --- DOM Elements ---
-        const btnCustomer = document.getElementById('btn-customer');
-        const btnStore = document.getElementById('btn-store');
-        const btnDriver = document.getElementById('btn-driver');
-        const panels = document.querySelectorAll('.view-panel');
-        const roleBtns = document.querySelectorAll('.role-btn');
+function renderActiveDelivery() {
+  const section = document.getElementById('activeDeliverySection');
+  if (!section) return;
+  if (!state.activeDriverOrder) { section.innerHTML = ''; return; }
+  const o = state.activeDriverOrder;
+  section.innerHTML = `
+    <div class="glass rounded-2xl p-5 border border-cyan-500/40" style="animation: fadeIn 0.4s ease-out;">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <span class="status-badge bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">${I.truck} Active Delivery</span>
+          <h3 class="text-lg font-bold text-white mt-2">${escapeHtml(o.customerName)}</h3>
+          <p class="text-xs text-slate-400">Order #${escapeHtml(o.id.slice(-8))} • From ${escapeHtml(o.storeName || 'Store')}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-slate-400">Payout</p>
+          <p class="text-xl font-extrabold text-brand-300">${fmtMoney(o.total)}</p>
+        </div>
+      </div>
+      <div class="bg-slate-900/40 rounded-lg p-3 mb-3 space-y-1">
+        ${(o.items || []).map(it => `
+          <div class="flex justify-between text-sm">
+            <span class="text-slate-200">${escapeHtml(it.qty)}× ${escapeHtml(it.name)}</span>
+            <span class="text-slate-400">${fmtMoney(it.price * it.qty)}</span>
+          </div>`).join('')}
+      </div>
+      <button id="markDeliveredBtn" class="w-full py-2.5 rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 hover:from-brand-300 hover:to-brand-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-brand-500/30">
+        ${I.check} Mark as Delivered
+      </button>
+    </div>`;
+  document.getElementById('markDeliveredBtn').addEventListener('click', () => {
+    const updates = {};
+    updates['orders/' + o.id + '/status'] = 'completed';
+    updates['drivers/' + state.driverId + '/status'] = 'available';
+    updates['drivers/' + state.driverId + '/activeOrderId'] = null;
+    update(ref(database), updates)
+      .then(() => showToast('Delivery completed! 🎉', 'success'))
+      .catch(err => showToast('Error: ' + err.message, 'error'));
+  });
+}
 
-        // Navigation Controllers
-        function switchPanel(activeId, activeBtn) {
-            panels.forEach(p => p.classList.remove('active'));
-            document.getElementById(activeId).classList.add('active');
-            
-            roleBtns.forEach(b => {
-                b.classList.remove('bg-blue-600', 'bg-green-600', 'bg-yellow-600', 'text-white', 'shadow');
-                b.classList.add('text-gray-400', 'hover:text-gray-200');
-            });
+// ============ INIT ============
+document.querySelectorAll('.role-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchRole(btn.dataset.role));
+});
+document.getElementById('cartOverlay').addEventListener('click', closeCart);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeCart(); closeStoreModal(); }
+});
 
-            if(activeId === 'view-customer') activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow');
-            if(activeId === 'view-store') activeBtn.classList.add('bg-green-600', 'text-white', 'shadow');
-            if(activeId === 'view-driver') activeBtn.classList.add('bg-yellow-600', 'text-white', 'shadow');
-        }
-
-        btnCustomer.addEventListener('click', () => switchPanel('view-customer', btnCustomer));
-        btnStore.addEventListener('click', () => switchPanel('view-store', btnStore));
-        btnDriver.addEventListener('click', () => {
-            switchPanel('view-driver', btnDriver);
-            syncDriverStatus();
-        });
-
-        // =========================================================
-        // CUSTOMER ENGINE LOGIC
-        // =========================================================
-        
-        // Listen for Realtime Stores updates
-        onValue(ref(db, 'stores'), (snapshot) => {
-            const container = document.getElementById('customer-stores-container');
-            const data = snapshot.val();
-            if(!data) {
-                container.innerHTML = `<p class="text-gray-500 text-sm italic col-span-2">No registered stores found.</p>`;
-                return;
-            }
-            container.innerHTML = '';
-            Object.keys(data).forEach(key => {
-                const store = data[key];
-                const card = document.createElement('div');
-                card.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 hover:border-blue-500 transition cursor-pointer flex justify-between items-center shadow";
-                card.innerHTML = `
-                    <div>
-                        <h4 class="font-bold text-white">${store.name || 'Unnamed Store'}</h4>
-                        <p class="text-xs text-gray-400 mt-1">${Object.keys(store.products || {}).length} Products Available</p>
-                    </div>
-                    <span class="text-blue-400 text-sm font-semibold">Browse →</span>
-                `;
-                card.addEventListener('click', () => selectStoreForCustomer(key, store));
-                container.appendChild(card);
-            });
-        });
-
-        function selectStoreForCustomer(id, store) {
-            currentStoreSelection = { id, ...store };
-            document.getElementById('selected-store-title').innerText = `Catalog: ${store.name}`;
-            document.getElementById('customer-products-panel').classList.remove('hidden');
-            
-            const container = document.getElementById('customer-products-container');
-            container.innerHTML = '';
-            
-            if(!store.products) {
-                container.innerHTML = `<p class="text-gray-500 text-sm italic">No items found inside this store's inventory layout.</p>`;
-                return;
-            }
-
-            Object.keys(store.products).forEach(pKey => {
-                const prod = store.products[pKey];
-                const card = document.createElement('div');
-                card.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 flex justify-between items-center";
-                card.innerHTML = `
-                    <div>
-                        <h5 class="font-semibold text-gray-200">${prod.name}</h5>
-                        <p class="text-sm text-emerald-400 font-bold mt-0.5">${parseFloat(prod.price).toFixed(2)} DZD</p>
-                    </div>
-                    <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition">
-                        + Add
-                    </button>
-                `;
-                card.querySelector('button').addEventListener('click', () => addToCart(pKey, prod));
-                container.appendChild(card);
-            });
-        }
-
-        document.getElementById('close-products-btn').addEventListener('click', () => {
-            document.getElementById('customer-products-panel').classList.add('hidden');
-            currentStoreSelection = null;
-        });
-
-        function addToCart(pKey, prod) {
-            if(!currentStoreSelection) return;
-            localCart.push({
-                productId: pKey,
-                name: prod.name,
-                price: parseFloat(prod.price),
-                storeId: currentStoreSelection.id,
-                storeName: currentStoreSelection.name
-            });
-            renderCart();
-        }
-
-        function renderCart() {
-            const container = document.getElementById('cart-items');
-            const totalEl = document.getElementById('cart-total');
-            if(localCart.length === 0) {
-                container.innerHTML = `<p class="text-gray-500 text-sm italic py-2">Your cart is empty.</p>`;
-                totalEl.innerText = '0.00 DZD';
-                return;
-            }
-            container.innerHTML = '';
-            let total = 0;
-            localCart.forEach((item, index) => {
-                total += item.price;
-                const row = document.createElement('div');
-                row.className = "flex justify-between items-center py-2 text-sm text-gray-300";
-                row.innerHTML = `
-                    <div>
-                        <p class="font-medium text-white">${item.name}</p>
-                        <p class="text-xs text-gray-500">${item.storeName}</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-semibold text-emerald-400">${item.price.toFixed(2)}</span>
-                        <button class="text-red-500 hover:text-red-400 font-bold text-xs px-1">✕</button>
-                    </div>
-                `;
-                row.querySelector('button').addEventListener('click', () => {
-                    localCart.splice(index, 1);
-                    renderCart();
-                });
-                container.appendChild(row);
-            });
-            totalEl.innerText = `${total.toFixed(2)} DZD`;
-        }
-
-        document.getElementById('checkout-btn').addEventListener('click', () => {
-            const name = document.getElementById('cust-name-input').value.trim();
-            if(!name || localCart.length === 0) {
-                alert('Please check that your name is entered and items are loaded into the cart.');
-                return;
-            }
-
-            const targetStoreId = localCart[0].storeId;
-            const targetStoreName = localCart[0].storeName;
-            
-            // Check cross-store restriction
-            const multiStoreCheck = localCart.some(item => item.storeId !== targetStoreId);
-            if(multiStoreCheck) {
-                alert('Multi-store checkout is locked. Please check out items from a single vendor profile.');
-                return;
-            }
-
-            let totalAmt = localCart.reduce((sum, i) => sum + i.price, 0);
-
-            const newOrderRef = push(ref(db, 'orders'));
-            const newOrderId = newOrderRef.key;
-
-            const orderPayload = {
-                customerName: name,
-                storeId: targetStoreId,
-                storeName: targetStoreName,
-                total: totalAmt,
-                status: 'pending',
-                items: localCart,
-                driverId: ''
-            };
-
-            set(newOrderRef, orderPayload).then(() => {
-                localCart = [];
-                renderCart();
-                trackCustomerOrder(newOrderId);
-            });
-        });
-
-        function trackCustomerOrder(orderId) {
-            onValue(ref(db, `orders/${orderId}`), (snapshot) => {
-                const container = document.getElementById('customer-tracking-container');
-                const order = snapshot.val();
-                if(!order) return;
-
-                let statusColor = "text-yellow-400 bg-yellow-950 border-yellow-800";
-                if(order.status === 'accepted') statusColor = "text-blue-400 bg-blue-950 border-blue-800";
-                if(order.status === 'looking_for_driver') statusColor = "text-purple-400 bg-purple-950 border-purple-800";
-                if(order.status === 'delivering') statusColor = "text-orange-400 bg-orange-950 border-orange-800";
-                if(order.status === 'completed') statusColor = "text-green-400 bg-green-950 border-green-800";
-
-                container.innerHTML = `
-                    <div class="p-4 rounded-xl border bg-gray-950 ${statusColor} border shadow flex flex-col gap-2">
-                        <div class="flex justify-between text-xs font-semibold">
-                            <span>ID: ${orderId.substring(0,8)}...</span>
-                            <span class="uppercase font-bold tracking-wider">${order.status.replace(/_/g, ' ')}</span>
-                        </div>
-                        <p class="text-sm font-bold text-white mt-1">Merchant: ${order.storeName}</p>
-                        <p class="text-xs">Total Bill: <span class="font-bold">${parseFloat(order.total).toFixed(2)} DZD</span></p>
-                        ${order.driverId ? `<p class="text-xs font-medium">Assigned Courier: <span class="text-white underline">${order.driverId}</span></p>` : ''}
-                    </div>
-                `;
-            });
-        }
-
-
-        // =========================================================
-        // STORE ENGINE LOGIC
-        // =========================================================
-        document.getElementById('save-store-btn').addEventListener('click', () => {
-            const sId = document.getElementById('store-id-input').value.trim();
-            const sName = document.getElementById('store-name-input').value.trim();
-            if(!sId || !sName) {
-                alert('Fill both identification fields to bind parameters.');
-                return;
-            }
-
-            // Provision store configuration metadata nodes
-            update(ref(db, `stores/${sId}`), { name: sName }).then(() => {
-                alert('Store registered and sync complete.');
-                bindStoreLiveOrders(sId);
-            });
-        });
-
-        document.getElementById('add-product-btn').addEventListener('click', () => {
-            const sId = document.getElementById('store-id-input').value.trim();
-            const pName = document.getElementById('prod-name-input').value.trim();
-            const pPrice = document.getElementById('prod-price-input').value.trim();
-            
-            if(!sId || !pName || !pPrice) {
-                alert('Specify store profile target, item identifier, and valuation amount.');
-                return;
-            }
-
-            const newProdRef = push(ref(db, `stores/${sId}/products`));
-            set(newProdRef, { name: pName, price: parseFloat(pPrice) }).then(() => {
-                document.getElementById('prod-name-input').value = '';
-                document.getElementById('prod-price-input').value = '';
-                alert('Product saved successfully.');
-            });
-        });
-
-        function bindStoreLiveOrders(storeId) {
-            onValue(ref(db, 'orders'), (snapshot) => {
-                const container = document.getElementById('store-orders-container');
-                container.innerHTML = '';
-                const data = snapshot.val();
-                
-                let matches = 0;
-                if(data) {
-                    Object.keys(data).forEach(key => {
-                        const order = data[key];
-                        if(order.storeId !== storeId) return;
-                        matches++;
-
-                        const itemNames = (order.items || []).map(i => i.name).join(', ');
-
-                        const card = document.createElement('div');
-                        card.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-3 shadow-md";
-                        card.innerHTML = `
-                            <div class="flex justify-between items-center border-b border-gray-900 pb-2">
-                                <span class="text-xs text-gray-400 font-mono">Order ID: ${key.substring(0,8)}...</span>
-                                <span class="text-xs px-2.5 py-0.5 rounded font-bold uppercase bg-gray-800 text-gray-300 border border-gray-700">${order.status.replace(/_/g, ' ')}</span>
-                            </div>
-                            <div class="text-sm">
-                                <p class="text-gray-400">Recipient Name: <span class="text-white font-medium">${order.customerName}</span></p>
-                                <p class="text-gray-400 mt-0.5">Manifest Items: <span class="text-gray-300 italic">${itemNames}</span></p>
-                                <p class="text-emerald-400 font-bold mt-1">Revenue: ${parseFloat(order.total).toFixed(2)} DZD</p>
-                            </div>
-                            <div class="flex flex-wrap gap-2 pt-1">
-                                <button class="accept-btn bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition">Accept Order</button>
-                                <button class="dispatch-btn bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition">Find Available Driver</button>
-                            </div>
-                        `;
-
-                        // Handle state changes
-                        card.querySelector('.accept-btn').addEventListener('click', () => {
-                            update(ref(db, `orders/${key}`), { status: 'accepted' });
-                        });
-                        card.querySelector('.dispatch-btn').addEventListener('click', () => {
-                            update(ref(db, `orders/${key}`), { status: 'looking_for_driver' });
-                        });
-
-                        container.appendChild(card);
-                    });
-                }
-
-                if(matches === 0) {
-                    container.innerHTML = `<p class="text-gray-500 text-sm italic">No active incoming orders registered for this merchant slug line.</p>`;
-                }
-            });
-        }
-
-
-        // =========================================================
-        // DRIVER PORTAL LOGIC
-        // =========================================================
-        const statusToggleBtn = document.getElementById('driver-status-toggle');
-        
-        statusToggleBtn.addEventListener('click', () => {
-            isDriverOnline = !isDriverOnline;
-            syncDriverStatus();
-        });
-
-        function syncDriverStatus() {
-            const dId = document.getElementById('driver-name-input').value.trim();
-            if(!dId) return;
-
-            if(isDriverOnline) {
-                statusToggleBtn.innerText = "ONLINE";
-                statusToggleBtn.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition bg-green-900 text-green-200 border border-green-700";
-                set(ref(db, `drivers/${dId}`), { name: dId, status: 'available' });
-                listenForDriverJobs();
-            } else {
-                statusToggleBtn.innerText = "OFFLINE";
-                statusToggleBtn.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition bg-red-900 text-red-200 border border-red-700";
-                set(ref(db, `drivers/${dId}`), { name: dId, status: 'offline' });
-                document.getElementById('driver-jobs-container').innerHTML = `<p class="text-gray-500 text-sm italic">Set your profile status to ONLINE to receive incoming open requests.</p>`;
-            }
-        }
-
-        function listenForDriverJobs() {
-            const dId = document.getElementById('driver-name-input').value.trim();
-            
-            onValue(ref(db, 'orders'), (snapshot) => {
-                if(!isDriverOnline) return;
-                
-                const container = document.getElementById('driver-jobs-container');
-                container.innerHTML = '';
-                const data = snapshot.val();
-                
-                let jobCount = 0;
-                if(data) {
-                    Object.keys(data).forEach(key => {
-                        const order = data[key];
-                        
-                        // Show jobs that are looking for a driver OR jobs assigned to this specific driver
-                        const isJobOpen = order.status === 'looking_for_driver';
-                        const isMyJob = order.driverId === dId && order.status === 'delivering';
-
-                        if (!isJobOpen && !isMyJob) return;
-                        jobCount++;
-
-                        const card = document.createElement('div');
-                        card.className = `p-4 rounded-xl border ${isMyJob ? 'bg-orange-950/40 border-orange-800' : 'bg-gray-950 border-gray-800'} space-y-3 shadow-md`;
-                        
-                        card.innerHTML = `
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm font-bold text-gray-200">Merchant pickup: ${order.storeName}</span>
-                                <span class="text-xs px-2 py-0.5 rounded font-bold uppercase ${isMyJob ? 'bg-orange-600 text-white' : 'bg-purple-900 text-purple-200'}">${order.status.replace(/_/g, ' ')}</span>
-                            </div>
-                            <div class="text-xs text-gray-400 space-y-1">
-                                <p>Customer Dropoff: <span class="text-white font-medium">${order.customerName}</span></p>
-                                <p>Total Payout value: <span class="text-emerald-400 font-bold">${parseFloat(order.total).toFixed(2)} DZD</span></p>
-                            </div>
-                            <div class="pt-1 flex gap-2">
-                                ${isJobOpen ? 
-                                    `<button class="claim-btn w-full bg-yellow-600 hover:bg-yellow-500 text-gray-950 text-xs font-bold py-2 rounded-lg transition">Accept Delivery Job</button>` : 
-                                    `<button class="complete-btn w-full bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 rounded-lg transition">Mark as Delivered</button>`
-                                }
-                            </div>
-                        `;
-
-                        if (isJobOpen) {
-                            card.querySelector('.claim-btn').addEventListener('click', () => {
-                                const updates = {
-                                    status: 'delivering',
-                                    driverId: dId
-                                };
-                                update(ref(db, `orders/${key}`), updates);
-                            });
-                        } else if (isMyJob) {
-                            card.querySelector('.complete-btn').addEventListener('click', () => {
-                                update(ref(db, `orders/${key}`), { status: 'completed' });
-                            });
-                        }
-
-                        container.appendChild(card);
-                    });
-                }
-
-                if(jobCount === 0) {
-                    container.innerHTML = `<p class="text-gray-500 text-sm italic">Radar system scanning. No active regional courier dispatch calls found at this minute.</p>`;
-                }
-            });
-        }
-    </script>
+// Boot
+switchRole('customer');
+showToast('Welcome to Nearby Marketplace', 'success');
+</script>
 </body>
 </html>
