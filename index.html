@@ -335,14 +335,43 @@
   const firebaseConfig = {
     apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco",
     authDomain: "sougi-12109.firebaseapp.com",
+    databaseURL: "https://sougi-12109-default-rtdb.europe-west1.firebasedatabase.app/",
     projectId: "sougi-12109",
     storageBucket: "sougi-12109.firebasestorage.app",
     messagingSenderId: "1001716494860",
     appId: "1:1001716494860:web:a03facb4ab30499467f429"
   };
 
-  const app = initializeApp(firebaseConfig);
-  const database = getDatabase(app);
+  let app = null;
+  let database = null;
+  let dbError = null;
+  try {
+    app = initializeApp(firebaseConfig);
+    database = getDatabase(app);
+  } catch (err) {
+    dbError = err;
+    console.error('Firebase init failed:', err);
+  }
+
+  function showConfigBanner(message) {
+    const bar = document.createElement('div');
+    bar.className = 'bg-red-500/15 border-b border-red-500/40 text-red-300 text-xs sm:text-sm font-semibold text-center px-4 py-2';
+    bar.textContent = message;
+    document.body.prepend(bar);
+  }
+  if (dbError) {
+    showConfigBanner('Database connection failed: ' + dbError.message + ' — buttons will not save data until this is fixed.');
+  }
+
+  // Guards so every Firebase call fails loudly (a toast) instead of silently,
+  // and so a missing/broken database never prevents buttons from responding.
+  function requireDb() {
+    if (!database) {
+      toast('Database is not connected — check the banner above.', 'amber');
+      return false;
+    }
+    return true;
+  }
 
   /* ---------------------------------------------------------------- */
   /* Utilities                                                          */
@@ -398,11 +427,15 @@
   setRole('customer');
 
   /* Connection indicator */
-  onValue(ref(database, '.info/connected'), (snap) => {
-    const connected = snap.val() === true;
-    $('connDot').className = `w-2 h-2 rounded-full ${connected ? 'bg-role-driver' : 'bg-base-600'}`;
-    $('connLabel').textContent = connected ? 'Live' : 'Connecting…';
-  });
+  if (database) {
+    onValue(ref(database, '.info/connected'), (snap) => {
+      const connected = snap.val() === true;
+      $('connDot').className = `w-2 h-2 rounded-full ${connected ? 'bg-role-driver' : 'bg-base-600'}`;
+      $('connLabel').textContent = connected ? 'Live' : 'Connecting…';
+    });
+  } else {
+    $('connLabel').textContent = 'Offline (config error)';
+  }
 
   /* ---------------------------------------------------------------- */
   /* Local session state                                                */
@@ -541,6 +574,7 @@
 
   $('checkoutForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!requireDb()) return;
     const items = Object.values(session.cart);
     if (items.length === 0) { toast('Your cart is empty.', 'customer'); return; }
     const name = $('customerName').value.trim();
@@ -594,7 +628,7 @@
   }
 
   function watchCustomerOrder() {
-    if (!session.activeCustomerOrderId) return;
+    if (!session.activeCustomerOrderId || !database) return;
     onValue(ref(database, `orders/${session.activeCustomerOrderId}`), (snap) => {
       const order = snap.val();
       if (!order) {
@@ -628,6 +662,7 @@
 
   $('storeForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!requireDb()) return;
     const name = $('storeNameInput').value.trim();
     if (!name) return;
     try {
@@ -649,6 +684,7 @@
 
   $('productForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!requireDb()) return;
     if (!session.storeId) { toast('Register your store first.', 'store'); return; }
     const name = $('productNameInput').value.trim();
     const price = Number($('productPriceInput').value);
@@ -726,6 +762,7 @@
 
     container.querySelectorAll('.order-action').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (!requireDb()) return;
         const oid = btn.dataset.oid;
         const action = btn.dataset.action;
         try {
@@ -758,6 +795,7 @@
 
   $('driverForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!requireDb()) return;
     const name = $('driverNameInput').value.trim();
     if (!name) return;
     try {
@@ -790,6 +828,7 @@
   }
 
   $('driverToggle').addEventListener('click', async () => {
+    if (!requireDb()) return;
     if (!session.driverId) { toast('Save your driver profile first.', 'driver'); return; }
     const d = allDrivers[session.driverId];
     if (d && d.status === 'busy') return;
@@ -826,6 +865,7 @@
 
     container.querySelectorAll('.accept-job').forEach(btn => {
       btn.addEventListener('click', async () => {
+        if (!requireDb()) return;
         if (!session.driverId) { toast('Save your driver profile first.', 'driver'); return; }
         const oid = btn.dataset.oid;
         try {
@@ -850,6 +890,7 @@
     $('activeJobCustomer').textContent = order.customerName;
     $('activeJobTotal').textContent = fmtMoney(order.total);
     $('markDeliveredBtn').onclick = async () => {
+      if (!requireDb()) return;
       try {
         await update(ref(database, `orders/${activeOrderId}`), { status: 'completed' });
         await update(ref(database, `drivers/${session.driverId}`), { status: 'available', activeOrderId: null });
@@ -864,31 +905,36 @@
   /* ---------------------------------------------------------------- */
   /* GLOBAL REAL-TIME LISTENERS                                        */
   /* ---------------------------------------------------------------- */
-  onValue(ref(database, 'stores'), (snap) => {
-    allStores = snap.val() || {};
-    renderStoreGrid();
-    if (session.selectedStoreId && allStores[session.selectedStoreId]) {
-      openStoreProducts(session.selectedStoreId);
-    }
-    if (session.storeId) applyStoreSession();
-    renderJobRadar();
-  });
+  if (database) {
+    onValue(ref(database, 'stores'), (snap) => {
+      allStores = snap.val() || {};
+      renderStoreGrid();
+      if (session.selectedStoreId && allStores[session.selectedStoreId]) {
+        openStoreProducts(session.selectedStoreId);
+      }
+      if (session.storeId) applyStoreSession();
+      renderJobRadar();
+    });
 
-  onValue(ref(database, 'orders'), (snap) => {
-    allOrders = snap.val() || {};
-    if (session.storeId) renderStoreOrders();
-    renderJobRadar();
-    renderActiveJob();
-  });
-
-  onValue(ref(database, 'drivers'), (snap) => {
-    allDrivers = snap.val() || {};
-    if (session.driverId) {
-      renderDriverStatus();
+    onValue(ref(database, 'orders'), (snap) => {
+      allOrders = snap.val() || {};
+      if (session.storeId) renderStoreOrders();
+      renderJobRadar();
       renderActiveJob();
-    }
+    });
+
+    onValue(ref(database, 'drivers'), (snap) => {
+      allDrivers = snap.val() || {};
+      if (session.driverId) {
+        renderDriverStatus();
+        renderActiveJob();
+      }
+      renderJobRadar();
+    });
+  } else {
+    renderStoreGrid();
     renderJobRadar();
-  });
+  }
 
   /* Initial state hydration */
   renderCart();
