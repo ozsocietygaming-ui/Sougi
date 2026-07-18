@@ -1,668 +1,1140 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sougi - Verified Local Delivery Ecosystem</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Premium Cairo Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Cairo', sans-serif; }
-        .app-panel { display: none; }
-        .app-panel.active { display: block; }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sougi — Hyperlocal Marketplace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { cairo: ['Cairo', 'sans-serif'] },
+        colors: {
+          base: { 950:'#0A0E14',900:'#0F141C',850:'#131924',800:'#182130',700:'#22303F',600:'#324256',500:'#526074',400:'#8493A6',300:'#B7C1CE' },
+          amber: { 400:'#F5B942',500:'#EFA61E',600:'#D68A0C' },
+          role: { customer:'#4FA6F2', store:'#B98CF2', driver:'#3ECF8E' }
+        },
+        boxShadow: {
+          'glow-amber':'0 0 0 1px rgba(239,166,30,0.25), 0 8px 24px -8px rgba(239,166,30,0.35)',
+          'glow-customer':'0 0 0 1px rgba(79,166,242,0.25), 0 8px 24px -8px rgba(79,166,242,0.35)',
+          'glow-store':'0 0 0 1px rgba(185,140,242,0.25), 0 8px 24px -8px rgba(185,140,242,0.35)',
+          'glow-driver':'0 0 0 1px rgba(62,207,142,0.25), 0 8px 24px -8px rgba(62,207,142,0.35)',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  * { font-family: 'Cairo', sans-serif; }
+  html { scroll-behavior: smooth; }
+  body {
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(79,166,242,0.08), transparent 60%),
+      radial-gradient(1000px 500px at 100% 0%, rgba(185,140,242,0.08), transparent 55%),
+      #0A0E14;
+    min-height: 100vh;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #22303F; border-radius: 999px; }
+  .view { display: none; animation: fadeSlide 0.35s ease; }
+  .view.active { display: block; }
+  .stage { display: none; }
+  .stage.active { display: block; animation: fadeSlide 0.35s ease; }
+  @keyframes fadeSlide { from { opacity:0; transform:translateY(6px);} to { opacity:1; transform:translateY(0);} }
+  .card-hover { transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
+  .card-hover:hover { transform: translateY(-2px); }
+  .status-pulse::before { content:''; position:absolute; inset:-3px; border-radius:999px; animation: pulseRing 1.8s ease-out infinite; }
+  @keyframes pulseRing { 0% { box-shadow:0 0 0 0 rgba(62,207,142,0.55);} 100% { box-shadow:0 0 0 8px rgba(62,207,142,0);} }
+  .toast-enter { animation: toastIn 0.3s ease; }
+  @keyframes toastIn { from { opacity:0; transform:translateY(12px) scale(0.96);} to { opacity:1; transform:translateY(0) scale(1);} }
+  input::placeholder, textarea::placeholder { color:#526074; }
+  select { color-scheme: dark; }
+  .skeleton { background: linear-gradient(90deg,#131924 25%,#182130 37%,#131924 63%); background-size:400% 100%; animation: shimmer 1.4s ease infinite; }
+  @keyframes shimmer { 0% { background-position:100% 50%;} 100% { background-position:0 50%;} }
+  .switch-track { transition: background-color 0.25s ease; }
+  .switch-thumb { transition: transform 0.25s ease; }
+  .star-btn { transition: transform 0.15s ease, color 0.15s ease; cursor: pointer; }
+  .star-btn:hover { transform: scale(1.15); }
+  .role-card { transition: all 0.2s ease; }
+  .role-card:hover { transform: translateY(-3px); }
+</style>
 </head>
-<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col">
+<body class="text-base-300 antialiased">
 
-    <!-- Top Navigation Bar -->
-    <header class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-lg text-white">S</div>
-                <span class="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">SOUGI</span>
-            </div>
-            <div id="auth-status-bar" class="hidden flex items-center gap-3">
-                <span id="user-display-badge" class="text-xs bg-gray-800 border border-gray-700 px-3 py-1 rounded-full text-gray-300 font-medium"></span>
-                <button id="logout-btn" class="text-xs text-red-400 hover:text-red-300 bg-red-950/30 border border-red-900/50 px-3 py-1 rounded-lg transition">Sign Out</button>
-            </div>
+<!-- ============ AUTH OVERLAY (login / role select / profile) ============ -->
+<div id="authOverlay" class="fixed inset-0 z-50 bg-base-950 flex items-center justify-center p-4">
+
+  <div id="stage-loading" class="stage active text-center">
+    <div class="w-10 h-10 border-2 border-base-700 border-t-amber-500 rounded-full animate-spin mx-auto mb-4"></div>
+    <p class="text-base-500 text-sm">Loading Sougi…</p>
+  </div>
+
+  <div id="stage-login" class="stage text-center max-w-sm w-full">
+    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 grid place-items-center shadow-glow-amber mx-auto mb-5">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M3 9L12 3L21 9V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V9Z" stroke="#0A0E14" stroke-width="2" stroke-linejoin="round"/><path d="M9 21V13H15V21" stroke="#0A0E14" stroke-width="2" stroke-linejoin="round"/></svg>
+    </div>
+    <h1 class="text-3xl font-black text-white tracking-tight mb-2">Welcome to Sougi</h1>
+    <p class="text-base-400 text-sm mb-8">Sign in to shop local stores, run your storefront, or deliver orders nearby.</p>
+    <button id="googleSignInBtn" class="w-full flex items-center justify-center gap-3 bg-white hover:bg-base-100 text-base-950 font-bold py-3.5 rounded-xl transition-colors">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.5-5.2l-6.2-5.2C29.2 35.5 26.7 36 24 36c-5.3 0-9.6-3.1-11.3-7.6l-6.5 5C9.6 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.2-4.1 5.6l6.2 5.2C40.5 36.4 44 30.8 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+      Continue with Google
+    </button>
+    <p id="authErrorMsg" class="hidden mt-4 text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2"></p>
+  </div>
+
+  <div id="stage-role" class="stage max-w-2xl w-full">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-black text-white tracking-tight mb-2">How will you use Sougi?</h1>
+      <p class="text-base-400 text-sm">Pick one — this decides which dashboard you'll see every time you sign in.</p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <button data-role="customer" class="role-card card-hover text-left bg-base-900 border border-base-800 hover:border-role-customer/60 rounded-2xl p-5">
+        <div class="w-11 h-11 rounded-xl bg-role-customer/15 grid place-items-center text-role-customer mb-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M1 1H5L7.68 14.39C7.77 14.87 8.02 15.29 8.38 15.6C8.75 15.9 9.21 16.07 9.68 16.07H19.4C19.87 16.07 20.33 15.9 20.7 15.6C21.06 15.29 21.31 14.87 21.4 14.39L23 6H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
-    </header>
+        <p class="font-bold text-white mb-1">Customer</p>
+        <p class="text-xs text-base-500">Browse stores nearby and order for delivery.</p>
+      </button>
+      <button data-role="store" class="role-card card-hover text-left bg-base-900 border border-base-800 hover:border-role-store/60 rounded-2xl p-5">
+        <div class="w-11 h-11 rounded-xl bg-role-store/15 grid place-items-center text-role-store mb-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 9L4 3H20L21 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 11V20H19V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <p class="font-bold text-white mb-1">Store owner</p>
+        <p class="text-xs text-base-500">List products and manage incoming orders.</p>
+      </button>
+      <button data-role="driver" class="role-card card-hover text-left bg-base-900 border border-base-800 hover:border-role-driver/60 rounded-2xl p-5">
+        <div class="w-11 h-11 rounded-xl bg-role-driver/15 grid place-items-center text-role-driver mb-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M14 16H9M14 16V19H9V16M14 16H19V11L16 6H9L6 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="19" r="2" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="19" r="2" stroke="currentColor" stroke-width="2"/></svg>
+        </div>
+        <p class="font-bold text-white mb-1">Delivery agent</p>
+        <p class="text-xs text-base-500">Pick up jobs and deliver orders nearby.</p>
+      </button>
+    </div>
+  </div>
 
-    <!-- Main Viewport Pipeline -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+  <div id="stage-profile-customer" class="stage max-w-md w-full">
+    <h1 class="text-2xl font-black text-white tracking-tight mb-1">Complete your profile</h1>
+    <p class="text-base-400 text-sm mb-6">Stores see this when you place an order.</p>
+    <form id="profileFormCustomer" class="space-y-3 bg-base-900 border border-base-800 rounded-2xl p-5">
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Full name *</label>
+        <input id="pf-cust-name" required type="text" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-customer" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Address *</label>
+        <input id="pf-cust-address" required type="text" placeholder="Street, city" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-customer" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Phone number *</label>
+        <input id="pf-cust-phone" required type="tel" placeholder="05xx xx xx xx" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-customer" />
+      </div>
+      <button type="submit" class="w-full bg-role-customer/90 hover:bg-role-customer text-base-950 font-bold py-3 rounded-xl transition-colors shadow-glow-customer mt-2">Enter Sougi</button>
+    </form>
+  </div>
 
-        <!-- 1. AUTHENTICATION LANDING VIEW -->
-        <section id="panel-login" class="app-panel active max-w-md mx-auto my-16 bg-gray-900 p-8 rounded-3xl border border-gray-800 shadow-2xl text-center space-y-6">
-            <h2 class="text-2xl font-bold tracking-tight text-white">Welcome to Sougi</h2>
-            <p class="text-sm text-gray-400 leading-relaxed">Access your secure portal layout. Manage inventories, accept delivery requests, or purchase local products instantly.</p>
-            <button id="google-login-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 font-bold text-sm py-3 rounded-xl transition shadow-lg shadow-indigo-900/30 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12.24 10.285V13.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.866-3.577-7.866-8s3.536-8 7.866-8c2.46 0 4.105 1.025 5.047 1.926l2.427-2.334C17.955 2.192 15.34 1 12.24 1 6.033 1 1 6.033 1 12.24s5.033 11.24 11.24 11.24c6.478 0 10.793-4.537 10.793-10.986 0-.746-.08-1.32-.176-1.884H12.24z"/></svg>
-                Continue with Google Account
+  <div id="stage-profile-store" class="stage max-w-md w-full">
+    <h1 class="text-2xl font-black text-white tracking-tight mb-1">Set up your store</h1>
+    <p class="text-base-400 text-sm mb-6">Customers see this before they order from you.</p>
+    <form id="profileFormStore" class="space-y-3 bg-base-900 border border-base-800 rounded-2xl p-5">
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Store name *</label>
+        <input id="pf-store-name" required type="text" placeholder="e.g. Yasmine Grocery" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Address *</label>
+        <input id="pf-store-address" required type="text" placeholder="Street, city" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Phone number *</label>
+        <input id="pf-store-phone" required type="tel" placeholder="05xx xx xx xx" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Category *</label>
+        <select id="pf-store-category" required class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store">
+          <option value="">Choose a category</option>
+          <option>Grocery</option><option>Bakery</option><option>Pharmacy</option>
+          <option>Restaurant</option><option>Electronics</option><option>Other</option>
+        </select>
+      </div>
+      <button type="submit" class="w-full bg-role-store/90 hover:bg-role-store text-base-950 font-bold py-3 rounded-xl transition-colors shadow-glow-store mt-2">Enter Sougi</button>
+    </form>
+  </div>
+
+  <div id="stage-profile-driver" class="stage max-w-md w-full">
+    <h1 class="text-2xl font-black text-white tracking-tight mb-1">Set up your driver profile</h1>
+    <p class="text-base-400 text-sm mb-6">Stores see this when picking a delivery rate.</p>
+    <form id="profileFormDriver" class="space-y-3 bg-base-900 border border-base-800 rounded-2xl p-5">
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Full name *</label>
+        <input id="pf-drv-name" required type="text" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-driver" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Phone number *</label>
+        <input id="pf-drv-phone" required type="tel" placeholder="05xx xx xx xx" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-driver" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Vehicle type *</label>
+        <select id="pf-drv-vehicle" required class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-driver">
+          <option value="">Choose a vehicle</option>
+          <option>Bicycle</option><option>Motorcycle</option><option>Car</option><option>Van</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-xs font-semibold text-base-500 mb-1 block">Price per km (DZD) *</label>
+        <input id="pf-drv-price" required type="number" min="1" step="1" placeholder="e.g. 30" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-driver" />
+      </div>
+      <button type="submit" class="w-full bg-role-driver/90 hover:bg-role-driver text-base-950 font-bold py-3 rounded-xl transition-colors shadow-glow-driver mt-2">Enter Sougi</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ TOP BAR ============ -->
+<header class="sticky top-0 z-40 backdrop-blur-xl bg-base-950/80 border-b border-base-800">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-2.5 shrink-0">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 grid place-items-center shadow-glow-amber">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9L12 3L21 9V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V9Z" stroke="#0A0E14" stroke-width="2" stroke-linejoin="round"/><path d="M9 21V13H15V21" stroke="#0A0E14" stroke-width="2" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <p class="font-black text-white text-lg leading-none tracking-tight">Sougi</p>
+        <p id="roleBadge" class="text-[10px] text-base-500 leading-none mt-1 tracking-wide uppercase">Hyperlocal Marketplace</p>
+      </div>
+    </div>
+
+    <div id="userChip" class="hidden items-center gap-3">
+      <div class="hidden sm:flex items-center gap-2">
+        <span id="connDot" class="w-2 h-2 rounded-full bg-base-600"></span>
+        <span id="connLabel" class="text-xs text-base-500">Connecting…</span>
+      </div>
+      <img id="userAvatar" class="w-8 h-8 rounded-full border border-base-700" src="" alt="" />
+      <span id="userName" class="text-sm font-semibold text-white hidden sm:inline"></span>
+      <button id="signOutBtn" class="text-xs font-bold text-base-500 hover:text-red-400 border border-base-800 hover:border-red-500/40 px-3 py-1.5 rounded-lg transition-colors">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ TOAST ============ -->
+<div id="toastHost" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 items-end"></div>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+
+  <!-- =========================================================== -->
+  <!-- CUSTOMER VIEW -->
+  <!-- =========================================================== -->
+  <section id="view-customer" class="view">
+    <div class="mb-8">
+      <p class="text-xs font-bold uppercase tracking-widest text-role-customer mb-2">Customer View</p>
+      <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">What are we picking up today?</h1>
+      <p class="text-base-400 mt-2 max-w-xl">Browse stores near you, build a cart, and pay cash on delivery. Your order updates live the moment a store or driver acts on it.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 space-y-6">
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-white text-lg">Stores near you</h2>
+            <span id="storeCount" class="text-xs text-base-500 font-semibold">0 stores</span>
+          </div>
+          <div id="storeGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="skeleton h-24 rounded-xl"></div>
+            <div class="skeleton h-24 rounded-xl"></div>
+          </div>
+        </div>
+
+        <div id="productPanel" class="bg-base-900 border border-base-800 rounded-2xl p-5 hidden">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs text-base-500 font-semibold">Products from</p>
+              <h2 id="activeStoreName" class="font-bold text-white text-lg">—</h2>
+            </div>
+            <button id="closeProductPanel" class="text-base-500 hover:text-white text-xs font-bold">Close ✕</button>
+          </div>
+          <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-white text-lg">Your cart</h2>
+            <span id="cartCount" class="text-xs text-base-500 font-semibold">0 items</span>
+          </div>
+          <div id="cartItems" class="space-y-2 mb-4">
+            <p class="text-sm text-base-500">Cart is empty. Add products to get started.</p>
+          </div>
+          <div class="flex items-center justify-between border-t border-base-800 pt-3 mb-4">
+            <span class="text-sm font-semibold text-base-400">Total</span>
+            <span id="cartTotal" class="text-xl font-black text-amber-400">0 DZD</span>
+          </div>
+          <form id="checkoutForm" class="space-y-3">
+            <div>
+              <label class="text-xs font-semibold text-base-500 mb-1 block">Deliver to</label>
+              <input id="deliveryAddress" type="text" required placeholder="Delivery address" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            </div>
+            <div class="flex items-center gap-2 bg-base-850 border border-base-700 rounded-xl px-4 py-2.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="6" width="20" height="12" rx="2" stroke="#3ECF8E" stroke-width="2"/><path d="M2 10H22" stroke="#3ECF8E" stroke-width="2"/></svg>
+              <span class="text-sm text-base-300 font-medium">Cash on Delivery</span>
+              <span class="ml-auto text-[10px] font-bold text-role-driver bg-role-driver/10 px-2 py-0.5 rounded-full">Default</span>
+            </div>
+            <button type="submit" id="placeOrderBtn" class="w-full bg-amber-500 hover:bg-amber-400 text-base-950 font-bold py-3 rounded-xl transition-colors shadow-glow-amber disabled:opacity-40 disabled:cursor-not-allowed">Place order</button>
+          </form>
+        </div>
+
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <h2 class="font-bold text-white text-lg mb-4">Order tracking</h2>
+          <div id="trackingEmpty" class="text-sm text-base-500">No active order yet. Place an order to track it live here.</div>
+          <div id="trackingActive" class="hidden space-y-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs text-base-500">Order from</p>
+                <p id="trackStoreName" class="font-bold text-white">—</p>
+              </div>
+              <p id="trackTotal" class="font-black text-amber-400">—</p>
+            </div>
+            <div class="flex items-center justify-between" id="trackStages"></div>
+            <p id="trackStatusLabel" class="text-center text-sm font-bold text-role-customer bg-role-customer/10 rounded-lg py-2"></p>
+            <div id="rateStoreBox" class="hidden text-center border-t border-base-800 pt-4">
+              <p class="text-xs text-base-500 mb-2">Rate this store</p>
+              <div id="rateStoreStars" class="flex items-center justify-center gap-1"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================== -->
+  <!-- STORE PANEL -->
+  <!-- =========================================================== -->
+  <section id="view-store" class="view">
+    <div class="mb-8 flex items-start justify-between flex-wrap gap-3">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-widest text-role-store mb-2">Store Panel</p>
+        <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Run your storefront</h1>
+        <p class="text-base-400 mt-2 max-w-xl">Manage products and incoming orders in real time.</p>
+      </div>
+      <div id="storeRatingBadge" class="bg-base-900 border border-base-800 rounded-xl px-4 py-2 text-center shrink-0">
+        <p class="text-[10px] text-base-500 uppercase font-bold tracking-wide">Your rating</p>
+        <p id="storeRatingValue" class="text-lg font-black text-amber-400">— <span class="text-xs text-base-500 font-medium">(0)</span></p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="space-y-6">
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <h2 class="font-bold text-white text-lg mb-4">Add a product</h2>
+          <form id="productForm" class="space-y-3">
+            <input id="productNameInput" type="text" required placeholder="Product name" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store" />
+            <input id="productPriceInput" type="number" min="1" step="1" required placeholder="Price (DZD)" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store" />
+            <button type="submit" class="w-full bg-base-800 hover:bg-base-700 text-white font-bold py-2.5 rounded-xl transition-colors border border-base-700">Add product</button>
+          </form>
+          <div id="storeProductList" class="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+        </div>
+
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <h2 class="font-bold text-white text-lg mb-4 flex items-center gap-2">
+            <span class="relative w-2.5 h-2.5 rounded-full bg-role-driver status-pulse"></span>
+            Available delivery agents
+          </h2>
+          <div id="availableDriversList" class="space-y-2 max-h-64 overflow-y-auto pr-1">
+            <p class="text-sm text-base-500">No delivery agents online right now.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-white text-lg">Incoming orders</h2>
+            <span id="storeOrderCount" class="text-xs text-base-500 font-semibold">0 orders</span>
+          </div>
+          <div id="storeOrders" class="space-y-3">
+            <p class="text-sm text-base-500">No orders yet. They'll appear here in real time.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================== -->
+  <!-- DRIVER PORTAL -->
+  <!-- =========================================================== -->
+  <section id="view-driver" class="view">
+    <div class="mb-8">
+      <p class="text-xs font-bold uppercase tracking-widest text-role-driver mb-2">Driver Portal</p>
+      <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Find your next delivery</h1>
+      <p class="text-base-400 mt-2 max-w-xl">Go online, watch the job radar for new deliveries, and mark them complete once dropped off.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="space-y-6">
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <h2 class="font-bold text-white text-lg mb-4">Availability</h2>
+          <div class="flex items-center justify-between bg-base-850 border border-base-700 rounded-xl px-4 py-3">
+            <div>
+              <p class="text-xs text-base-500">Status</p>
+              <p id="driverStatusLabel" class="font-bold text-white">Offline</p>
+            </div>
+            <button id="driverToggle" class="switch-track relative w-14 h-8 rounded-full bg-base-700">
+              <span id="driverThumb" class="switch-thumb absolute top-1 left-1 w-6 h-6 rounded-full bg-white block"></span>
             </button>
-        </section>
+          </div>
+        </div>
 
-        <!-- 2. ROLE SELECTION ONBOARDING -->
-        <section id="panel-role-select" class="app-panel max-w-xl mx-auto my-12 bg-gray-900 p-8 rounded-3xl border border-gray-800 shadow-2xl space-y-6">
-            <h2 class="text-xl font-bold text-center text-white">Select Your Platform Role</h2>
-            <p class="text-xs text-gray-400 text-center">Your account role defines your unique access dashboard and permissions scheme across the network.</p>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <button onclick="setUserRole('customer')" class="p-4 rounded-xl border border-gray-800 bg-gray-950 hover:border-blue-500 transition text-center group">
-                    <span class="block text-2xl mb-1">🛒</span>
-                    <span class="block font-bold text-sm text-gray-200 group-hover:text-blue-400">Customer</span>
-                </button>
-                <button onclick="setUserRole('store')" class="p-4 rounded-xl border border-gray-800 bg-gray-950 hover:border-green-500 transition text-center group">
-                    <span class="block text-2xl mb-1">🏪</span>
-                    <span class="block font-bold text-sm text-gray-200 group-hover:text-green-400">Store Owner</span>
-                </button>
-                <button onclick="setUserRole('driver')" class="p-4 rounded-xl border border-gray-800 bg-gray-950 hover:border-yellow-500 transition text-center group">
-                    <span class="block text-2xl mb-1">⚡</span>
-                    <span class="block font-bold text-sm text-gray-200 group-hover:text-yellow-400">Driver Agent</span>
-                </button>
+        <div id="activeJobCard" class="hidden bg-base-900 border border-role-driver/40 rounded-2xl p-5">
+          <p class="text-xs font-bold uppercase tracking-widest text-role-driver mb-3">Active delivery</p>
+          <p class="text-sm text-base-400">Customer</p>
+          <p id="activeJobCustomer" class="font-bold text-white mb-2">—</p>
+          <p class="text-sm text-base-400">Customer phone</p>
+          <p id="activeJobPhone" class="font-bold text-white mb-2">—</p>
+          <p class="text-sm text-base-400">Deliver to</p>
+          <p id="activeJobAddress" class="font-bold text-white mb-3">—</p>
+          <p class="text-sm text-base-400">Total (COD)</p>
+          <p id="activeJobTotal" class="font-black text-amber-400 mb-4">—</p>
+          <button id="markDeliveredBtn" class="w-full bg-amber-500 hover:bg-amber-400 text-base-950 font-bold py-2.5 rounded-xl transition-colors shadow-glow-amber">Mark as delivered</button>
+        </div>
+      </div>
+
+      <div class="lg:col-span-2">
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-white text-lg flex items-center gap-2">
+              <span class="relative w-2.5 h-2.5 rounded-full bg-role-driver status-pulse"></span>
+              Available delivery jobs
+            </h2>
+            <span id="jobCount" class="text-xs text-base-500 font-semibold">0 jobs</span>
+          </div>
+          <div id="jobRadar" class="space-y-3">
+            <p class="text-sm text-base-500">No jobs looking for a driver right now.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="max-w-7xl mx-auto px-4 sm:px-6 pb-8 pt-4 text-center text-xs text-base-600">
+  Sougi — a three-sided demo marketplace. Data syncs live via Firebase Realtime Database.
+</footer>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, push, onValue, update, get, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco",
+    authDomain: "sougi-12109.firebaseapp.com",
+    databaseURL: "https://sougi-12109-default-rtdb.europe-west1.firebasedatabase.app/",
+    projectId: "sougi-12109",
+    storageBucket: "sougi-12109.firebasestorage.app",
+    messagingSenderId: "1001716494860",
+    appId: "1:1001716494860:web:a03facb4ab30499467f429"
+  };
+
+  let app = null, database = null, auth = null, dbError = null;
+  try {
+    app = initializeApp(firebaseConfig);
+    database = getDatabase(app);
+    auth = getAuth(app);
+  } catch (err) {
+    dbError = err;
+    console.error('Firebase init failed:', err);
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const fmtMoney = (n) => `${Number(n || 0).toLocaleString()} DZD`;
+  const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const avgRating = (sum, count) => (count && count > 0) ? (sum / count) : null;
+
+  function showConfigBanner(message) {
+    const bar = document.createElement('div');
+    bar.className = 'bg-red-500/15 border-b border-red-500/40 text-red-300 text-xs sm:text-sm font-semibold text-center px-4 py-2';
+    bar.textContent = message;
+    document.body.prepend(bar);
+  }
+  if (dbError) showConfigBanner('Firebase failed to initialize: ' + dbError.message);
+
+  function requireDb() {
+    if (!database) { toast('Database is not connected.', 'amber'); return false; }
+    return true;
+  }
+
+  function toast(message, tone = 'amber') {
+    const toneMap = {
+      amber: 'border-amber-500/40 text-amber-300',
+      customer: 'border-role-customer/40 text-role-customer',
+      store: 'border-role-store/40 text-role-store',
+      driver: 'border-role-driver/40 text-role-driver',
+    };
+    const el = document.createElement('div');
+    el.className = `toast-enter bg-base-900 border ${toneMap[tone] || toneMap.amber} rounded-xl px-4 py-3 text-sm font-semibold shadow-lg max-w-xs`;
+    el.textContent = message;
+    $('toastHost').appendChild(el);
+    setTimeout(() => { el.style.transition = 'opacity 0.3s ease'; el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 3200);
+  }
+
+  const STATUS_META = {
+    pending:            { label: 'Pending confirmation', stageIndex: 0 },
+    accepted:           { label: 'Accepted by store', stageIndex: 1 },
+    looking_for_driver: { label: 'Looking for a driver', stageIndex: 2 },
+    delivering:         { label: 'Out for delivery', stageIndex: 3 },
+    completed:          { label: 'Delivered', stageIndex: 4 },
+  };
+  const STAGE_LABELS = ['Placed', 'Accepted', 'Driver', 'On the way', 'Delivered'];
+
+  function renderStars(current, size = 14) {
+    let s = '';
+    for (let i = 1; i <= 5; i++) {
+      s += `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${i <= Math.round(current) ? '#F5B942' : 'none'}" stroke="#F5B942" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+    }
+    return s;
+  }
+  function interactiveStars(onPick) {
+    const wrap = document.createElement('div');
+    wrap.className = 'flex items-center gap-1';
+    for (let i = 1; i <= 5; i++) {
+      const b = document.createElement('span');
+      b.className = 'star-btn';
+      b.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5B942" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`;
+      b.addEventListener('click', () => onPick(i));
+      wrap.appendChild(b);
+    }
+    return wrap;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* AUTH FLOW                                                          */
+  /* ---------------------------------------------------------------- */
+  const stages = ['loading','login','role','profile-customer','profile-store','profile-driver'];
+  function showStage(name) {
+    stages.forEach(s => $(`stage-${s}`).classList.remove('active'));
+    $(`stage-${name}`).classList.add('active');
+  }
+  function hideAuthOverlay() { $('authOverlay').classList.add('hidden'); }
+  function showAuthOverlay() { $('authOverlay').classList.remove('hidden'); }
+
+  let currentUser = null;   // firebase auth user
+  let currentUid = null;
+  let currentRole = null;   // 'customer' | 'store' | 'driver'
+  let currentProfile = null;
+
+  $('googleSignInBtn').addEventListener('click', async () => {
+    if (!auth) { toast('Auth is not connected.', 'amber'); return; }
+    $('authErrorMsg').classList.add('hidden');
+    try {
+      await signInWithPopup(auth, new GoogleAuthProvider());
+    } catch (err) {
+      console.error(err);
+      let msg = err.message;
+      if (err.code === 'auth/unauthorized-domain') msg = 'This domain is not authorized for Google Sign-In yet. Add it under Firebase console → Authentication → Settings → Authorized domains.';
+      if (err.code === 'auth/operation-not-allowed') msg = 'Google Sign-In is not enabled yet. Turn it on in Firebase console → Authentication → Sign-in method.';
+      $('authErrorMsg').textContent = msg;
+      $('authErrorMsg').classList.remove('hidden');
+    }
+  });
+
+  $('signOutBtn').addEventListener('click', async () => {
+    if (!auth) return;
+    await signOut(auth);
+  });
+
+  document.querySelectorAll('.role-card').forEach(card => {
+    card.addEventListener('click', () => {
+      currentRole = card.dataset.role;
+      showStage(`profile-${currentRole}`);
+    });
+  });
+
+  $('profileFormCustomer').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!requireDb() || !currentUid) return;
+    const profile = {
+      role: 'customer',
+      fullName: $('pf-cust-name').value.trim(),
+      address: $('pf-cust-address').value.trim(),
+      phone: $('pf-cust-phone').value.trim(),
+      photoURL: currentUser.photoURL || '',
+      ratingSum: 0, ratingCount: 0,
+      createdAt: Date.now(),
+    };
+    await set(ref(database, `users/${currentUid}`), profile);
+    toast('Profile saved. Welcome!', 'customer');
+  });
+
+  $('profileFormStore').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!requireDb() || !currentUid) return;
+    const userProfile = { role: 'store', createdAt: Date.now() };
+    const storeProfile = {
+      name: $('pf-store-name').value.trim(),
+      address: $('pf-store-address').value.trim(),
+      phone: $('pf-store-phone').value.trim(),
+      category: $('pf-store-category').value,
+      products: {},
+      ratingSum: 0, ratingCount: 0,
+    };
+    await set(ref(database, `users/${currentUid}`), userProfile);
+    await set(ref(database, `stores/${currentUid}`), storeProfile);
+    toast('Store created. Welcome!', 'store');
+  });
+
+  $('profileFormDriver').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!requireDb() || !currentUid) return;
+    const userProfile = { role: 'driver', createdAt: Date.now() };
+    const driverProfile = {
+      name: $('pf-drv-name').value.trim(),
+      phone: $('pf-drv-phone').value.trim(),
+      vehicleType: $('pf-drv-vehicle').value,
+      pricePerKm: Number($('pf-drv-price').value),
+      status: 'offline',
+      activeOrderId: null,
+    };
+    await set(ref(database, `users/${currentUid}`), userProfile);
+    await set(ref(database, `drivers/${currentUid}`), driverProfile);
+    toast('Driver profile saved. Welcome!', 'driver');
+  });
+
+  function enterApp(role) {
+    hideAuthOverlay();
+    $('userChip').classList.remove('hidden');
+    $('userChip').classList.add('flex');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    $(`view-${role}`).classList.add('active');
+    const roleLabels = { customer: 'Customer', store: 'Store owner', driver: 'Delivery agent' };
+    $('roleBadge').textContent = roleLabels[role];
+    startRoleListeners();
+  }
+
+  let userProfileRef = null;
+
+  if (auth && database) {
+    onAuthStateChanged(auth, async (user) => {
+      if (userProfileRef) { off(userProfileRef); userProfileRef = null; }
+
+      if (!user) {
+        currentUser = null; currentUid = null; currentRole = null; currentProfile = null;
+        $('userChip').classList.add('hidden');
+        $('userChip').classList.remove('flex');
+        showAuthOverlay();
+        showStage('login');
+        return;
+      }
+      currentUser = user;
+      currentUid = user.uid;
+      $('userAvatar').src = user.photoURL || '';
+      $('userName').textContent = user.displayName || user.email || '';
+
+      showStage('loading');
+      userProfileRef = ref(database, `users/${currentUid}`);
+      onValue(userProfileRef, (snap) => {
+        const profile = snap.val();
+        currentProfile = profile;
+        if (!profile || !profile.role) {
+          showAuthOverlay();
+          showStage('role');
+          return;
+        }
+        currentRole = profile.role;
+        if ($('authOverlay').classList.contains('hidden') === false) {
+          enterApp(currentRole);
+        }
+      });
+    });
+  } else {
+    showConfigBanner('Sign-in is unavailable because Firebase failed to initialize.');
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Connection indicator                                               */
+  /* ---------------------------------------------------------------- */
+  if (database) {
+    onValue(ref(database, '.info/connected'), (snap) => {
+      const connected = snap.val() === true;
+      $('connDot').className = `w-2 h-2 rounded-full ${connected ? 'bg-role-driver' : 'bg-base-600'}`;
+      $('connLabel').textContent = connected ? 'Live' : 'Connecting…';
+    });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* Shared state                                                       */
+  /* ---------------------------------------------------------------- */
+  let allStores = {};
+  let allOrders = {};
+  let allDrivers = {};
+  let allUsers = {};
+  let selectedStoreId = null;
+  let cart = {};
+  let activeCustomerOrderId = localStorage.getItem('sougi_lastOrderId') || null;
+  let listenersStarted = false;
+
+  function startRoleListeners() {
+    if (listenersStarted || !database) return;
+    listenersStarted = true;
+
+    onValue(ref(database, 'stores'), (snap) => {
+      allStores = snap.val() || {};
+      if (currentRole === 'customer') {
+        renderStoreGrid();
+        if (selectedStoreId && allStores[selectedStoreId]) openStoreProducts(selectedStoreId);
+      }
+      if (currentRole === 'store') renderStoreHeader();
+      if (currentRole === 'driver') renderJobRadar();
+    });
+
+    onValue(ref(database, 'orders'), (snap) => {
+      allOrders = snap.val() || {};
+      if (currentRole === 'store') renderStoreOrders();
+      if (currentRole === 'driver') { renderJobRadar(); renderActiveJob(); }
+      if (currentRole === 'customer') watchTracking();
+    });
+
+    onValue(ref(database, 'drivers'), (snap) => {
+      allDrivers = snap.val() || {};
+      if (currentRole === 'driver') renderDriverStatus();
+      if (currentRole === 'store') renderAvailableDrivers();
+      if (currentRole === 'driver') renderActiveJob();
+    });
+
+    onValue(ref(database, 'users'), (snap) => {
+      allUsers = snap.val() || {};
+      if (currentRole === 'store') renderStoreOrders();
+    });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* CUSTOMER VIEW                                                      */
+  /* ---------------------------------------------------------------- */
+  function renderStoreGrid() {
+    const grid = $('storeGrid');
+    const ids = Object.keys(allStores);
+    $('storeCount').textContent = `${ids.length} store${ids.length === 1 ? '' : 's'}`;
+    if (ids.length === 0) {
+      grid.innerHTML = `<p class="text-sm text-base-500 col-span-2">No stores registered yet.</p>`;
+      return;
+    }
+    grid.innerHTML = ids.map(id => {
+      const s = allStores[id];
+      const productCount = s.products ? Object.keys(s.products).length : 0;
+      const avg = avgRating(s.ratingSum, s.ratingCount);
+      return `
+        <button data-store-id="${id}" class="store-card card-hover text-left bg-base-850 border border-base-700 hover:border-role-customer/60 rounded-xl p-4">
+          <div class="flex items-center gap-3 mb-2">
+            <div class="w-10 h-10 rounded-lg bg-role-customer/15 grid place-items-center text-role-customer font-black shrink-0">${escapeHtml((s.name || '?')[0].toUpperCase())}</div>
+            <div class="min-w-0">
+              <p class="font-bold text-white truncate">${escapeHtml(s.name || 'Unnamed store')}</p>
+              <p class="text-xs text-base-500">${escapeHtml(s.category || '')} · ${productCount} product${productCount === 1 ? '' : 's'}</p>
             </div>
-        </section>
+          </div>
+          <div class="flex items-center gap-1">${avg ? renderStars(avg, 12) : '<span class="text-[10px] text-base-600">No ratings yet</span>'}${avg ? `<span class="text-[10px] text-base-500 ml-1">(${s.ratingCount})</span>` : ''}</div>
+        </button>`;
+    }).join('');
+    grid.querySelectorAll('.store-card').forEach(card => card.addEventListener('click', () => openStoreProducts(card.dataset.storeId)));
+  }
 
-        <!-- 3. PROFILE REGISTRATION REGISTRY Forms -->
-        <section id="panel-profile-form" class="app-panel max-w-lg mx-auto bg-gray-900 p-8 rounded-3xl border border-gray-800 shadow-2xl space-y-6">
-            <h2 class="text-xl font-bold text-white border-b border-gray-800 pb-2">Complete Profile Information</h2>
-            
-            <div id="form-fields-container" class="space-y-4">
-                <!-- Fields Injected Dynamically depending on selected profile role -->
+  function openStoreProducts(storeId) {
+    selectedStoreId = storeId;
+    const s = allStores[storeId];
+    if (!s) return;
+    $('productPanel').classList.remove('hidden');
+    $('activeStoreName').textContent = s.name || 'Unnamed store';
+    const products = s.products || {};
+    const pids = Object.keys(products);
+    const grid = $('productGrid');
+    if (pids.length === 0) {
+      grid.innerHTML = `<p class="text-sm text-base-500 col-span-2">This store hasn't listed any products yet.</p>`;
+      return;
+    }
+    grid.innerHTML = pids.map(pid => {
+      const p = products[pid];
+      return `
+        <div class="bg-base-850 border border-base-700 rounded-xl p-4 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="font-bold text-white truncate">${escapeHtml(p.name)}</p>
+            <p class="text-sm text-amber-400 font-bold">${fmtMoney(p.price)}</p>
+          </div>
+          <button data-pid="${pid}" class="add-to-cart shrink-0 bg-role-customer/15 hover:bg-role-customer/30 text-role-customer font-bold text-sm px-3 py-1.5 rounded-lg">Add</button>
+        </div>`;
+    }).join('');
+    grid.querySelectorAll('.add-to-cart').forEach(btn => btn.addEventListener('click', () => addToCart(storeId, s.name, btn.dataset.pid, products[btn.dataset.pid])));
+  }
+
+  $('closeProductPanel').addEventListener('click', () => { $('productPanel').classList.add('hidden'); selectedStoreId = null; });
+
+  function addToCart(storeId, storeName, pid, product) {
+    const existingStoreIds = new Set(Object.values(cart).map(i => i.storeId));
+    if (existingStoreIds.size > 0 && !existingStoreIds.has(storeId)) {
+      toast('Your cart already has items from another store. Finish or clear that order first.', 'customer');
+      return;
+    }
+    const key = `${storeId}__${pid}`;
+    if (cart[key]) cart[key].qty += 1;
+    else cart[key] = { name: product.name, price: Number(product.price), qty: 1, storeId, storeName, pid };
+    renderCart();
+    toast(`Added ${product.name} to cart`, 'customer');
+  }
+
+  function renderCart() {
+    const items = Object.entries(cart);
+    $('cartCount').textContent = `${items.reduce((a, [,i]) => a + i.qty, 0)} items`;
+    const container = $('cartItems');
+    if (items.length === 0) {
+      container.innerHTML = `<p class="text-sm text-base-500">Cart is empty. Add products to get started.</p>`;
+      $('cartTotal').textContent = fmtMoney(0);
+      $('placeOrderBtn').disabled = true;
+      return;
+    }
+    container.innerHTML = items.map(([key, item]) => `
+      <div class="flex items-center justify-between gap-2 bg-base-850 rounded-lg px-3 py-2">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-white truncate">${escapeHtml(item.name)}</p>
+          <p class="text-xs text-base-500">${fmtMoney(item.price)} × ${item.qty}</p>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button data-key="${key}" data-delta="-1" class="cart-qty w-6 h-6 rounded bg-base-700 text-white text-xs font-bold">−</button>
+          <span class="text-xs text-base-300 w-4 text-center">${item.qty}</span>
+          <button data-key="${key}" data-delta="1" class="cart-qty w-6 h-6 rounded bg-base-700 text-white text-xs font-bold">+</button>
+        </div>
+      </div>`).join('');
+    container.querySelectorAll('.cart-qty').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        cart[key].qty += Number(btn.dataset.delta);
+        if (cart[key].qty <= 0) delete cart[key];
+        renderCart();
+      });
+    });
+    const total = items.reduce((sum, [, i]) => sum + i.price * i.qty, 0);
+    $('cartTotal').textContent = fmtMoney(total);
+    $('placeOrderBtn').disabled = false;
+  }
+
+  // pre-fill delivery address from profile once known
+  const addrObserver = setInterval(() => {
+    if (currentProfile && currentProfile.address && $('deliveryAddress') && !$('deliveryAddress').value) {
+      $('deliveryAddress').value = currentProfile.address;
+    }
+  }, 500);
+
+  $('checkoutForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!requireDb()) return;
+    const items = Object.values(cart);
+    if (items.length === 0) { toast('Your cart is empty.', 'customer'); return; }
+    if (!currentProfile) { toast('Your profile is not loaded yet.', 'customer'); return; }
+    const deliveryAddress = $('deliveryAddress').value.trim();
+    if (!deliveryAddress) return;
+    const storeId = items[0].storeId;
+    const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
+
+    const btn = $('placeOrderBtn');
+    btn.disabled = true;
+    btn.textContent = 'Placing order…';
+    try {
+      const newOrderRef = push(ref(database, 'orders'));
+      const orderPayload = {
+        customerId: currentUid,
+        customerName: currentProfile.fullName,
+        customerPhone: currentProfile.phone,
+        deliveryAddress,
+        items: items.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
+        total,
+        status: 'pending',
+        storeId,
+        storeName: items[0].storeName,
+        driverId: null,
+        createdAt: Date.now(),
+        storeRatedByCustomer: false,
+        customerRatedByStore: false,
+      };
+      await set(newOrderRef, orderPayload);
+      activeCustomerOrderId = newOrderRef.key;
+      localStorage.setItem('sougi_lastOrderId', newOrderRef.key);
+      cart = {};
+      renderCart();
+      toast('Order placed! Tracking it below.', 'customer');
+    } catch (err) {
+      toast('Could not place order. Try again.', 'customer');
+      console.error(err);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Place order';
+    }
+  });
+
+  function renderTrackStages(currentStageIndex) {
+    const wrap = $('trackStages');
+    wrap.innerHTML = STAGE_LABELS.map((label, idx) => {
+      const done = idx <= currentStageIndex;
+      return `<div class="flex-1 flex flex-col items-center gap-1.5">
+        <div class="w-3 h-3 rounded-full ${done ? 'bg-role-customer' : 'bg-base-700'}"></div>
+        <span class="text-[10px] text-center ${done ? 'text-base-300 font-semibold' : 'text-base-600'}">${label}</span>
+      </div>`;
+    }).join('<div class="h-px flex-1 bg-base-700 -mt-4"></div>');
+  }
+
+  function watchTracking() {
+    if (!activeCustomerOrderId) { $('trackingEmpty').classList.remove('hidden'); $('trackingActive').classList.add('hidden'); return; }
+    const order = allOrders[activeCustomerOrderId];
+    if (!order) { $('trackingEmpty').classList.remove('hidden'); $('trackingActive').classList.add('hidden'); return; }
+    $('trackingEmpty').classList.add('hidden');
+    $('trackingActive').classList.remove('hidden');
+    $('trackStoreName').textContent = order.storeName || '—';
+    $('trackTotal').textContent = fmtMoney(order.total);
+    const meta = STATUS_META[order.status] || STATUS_META.pending;
+    renderTrackStages(meta.stageIndex);
+    $('trackStatusLabel').textContent = meta.label;
+
+    const rateBox = $('rateStoreBox');
+    if (order.status === 'completed' && !order.storeRatedByCustomer) {
+      rateBox.classList.remove('hidden');
+      const starsEl = $('rateStoreStars');
+      starsEl.innerHTML = '';
+      starsEl.appendChild(interactiveStars(async (stars) => {
+        if (!requireDb()) return;
+        try {
+          const storeSnap = await get(ref(database, `stores/${order.storeId}`));
+          const store = storeSnap.val() || {};
+          const newSum = (store.ratingSum || 0) + stars;
+          const newCount = (store.ratingCount || 0) + 1;
+          await update(ref(database, `stores/${order.storeId}`), { ratingSum: newSum, ratingCount: newCount });
+          await update(ref(database, `orders/${activeCustomerOrderId}`), { storeRatedByCustomer: true });
+          toast('Thanks for rating this store!', 'customer');
+        } catch (err) { console.error(err); toast('Could not submit rating.', 'customer'); }
+      }));
+    } else {
+      rateBox.classList.add('hidden');
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* STORE PANEL                                                        */
+  /* ---------------------------------------------------------------- */
+  function renderStoreHeader() {
+    const s = allStores[currentUid];
+    if (!s) return;
+    const avg = avgRating(s.ratingSum, s.ratingCount);
+    $('storeRatingValue').innerHTML = avg ? `${avg.toFixed(1)} <span class="text-xs text-base-500 font-medium">(${s.ratingCount})</span>` : `— <span class="text-xs text-base-500 font-medium">(0)</span>`;
+    renderStoreProductList();
+  }
+
+  $('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!requireDb()) return;
+    const name = $('productNameInput').value.trim();
+    const price = Number($('productPriceInput').value);
+    if (!name || !price) return;
+    try {
+      const newProductRef = push(ref(database, `stores/${currentUid}/products`));
+      await set(newProductRef, { name, price });
+      $('productNameInput').value = '';
+      $('productPriceInput').value = '';
+      toast('Product added.', 'store');
+    } catch (err) { toast('Could not add product.', 'store'); console.error(err); }
+  });
+
+  function renderStoreProductList() {
+    const container = $('storeProductList');
+    const s = allStores[currentUid];
+    const products = (s && s.products) || {};
+    const pids = Object.keys(products);
+    if (pids.length === 0) { container.innerHTML = `<p class="text-sm text-base-500">No products listed yet.</p>`; return; }
+    container.innerHTML = pids.map(pid => `
+      <div class="flex items-center justify-between bg-base-850 rounded-lg px-3 py-2 gap-2">
+        <span class="text-sm text-white font-medium truncate">${escapeHtml(products[pid].name)}</span>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-sm text-amber-400 font-bold">${fmtMoney(products[pid].price)}</span>
+          <button data-pid="${pid}" class="remove-product text-base-500 hover:text-red-400 text-xs font-bold">✕</button>
+        </div>
+      </div>`).join('');
+    container.querySelectorAll('.remove-product').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!requireDb()) return;
+        try { await set(ref(database, `stores/${currentUid}/products/${btn.dataset.pid}`), null); toast('Product removed.', 'store'); }
+        catch (err) { console.error(err); toast('Could not remove product.', 'store'); }
+      });
+    });
+  }
+
+  function renderAvailableDrivers() {
+    const container = $('availableDriversList');
+    const entries = Object.entries(allDrivers).filter(([, d]) => d.status === 'available');
+    if (entries.length === 0) { container.innerHTML = `<p class="text-sm text-base-500">No delivery agents online right now.</p>`; return; }
+    container.innerHTML = entries.map(([, d]) => `
+      <div class="flex items-center justify-between bg-base-850 rounded-lg px-3 py-2">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-white truncate">${escapeHtml(d.name)}</p>
+          <p class="text-xs text-base-500">${escapeHtml(d.vehicleType || '')}</p>
+        </div>
+        <span class="text-xs font-bold text-role-driver shrink-0">${fmtMoney(d.pricePerKm)}/km</span>
+      </div>`).join('');
+  }
+
+  function renderStoreOrders() {
+    const container = $('storeOrders');
+    const orders = Object.entries(allOrders).filter(([, o]) => o.storeId === currentUid);
+    $('storeOrderCount').textContent = `${orders.length} order${orders.length === 1 ? '' : 's'}`;
+    if (orders.length === 0) { container.innerHTML = `<p class="text-sm text-base-500">No orders yet. They'll appear here in real time.</p>`; return; }
+    container.innerHTML = orders
+      .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0))
+      .map(([id, o]) => {
+        const meta = STATUS_META[o.status] || STATUS_META.pending;
+        const itemsLine = (o.items || []).map(i => `${i.qty}× ${escapeHtml(i.name)}`).join(', ');
+        const custProfile = allUsers[o.customerId] || {};
+        const custAvg = avgRating(custProfile.ratingSum, custProfile.ratingCount);
+        let actions = '';
+        if (o.status === 'pending') actions = `<button data-oid="${id}" data-action="accept" class="order-action bg-role-store/20 hover:bg-role-store/35 text-role-store text-xs font-bold px-3 py-2 rounded-lg">Accept order</button>`;
+        else if (o.status === 'accepted') actions = `<button data-oid="${id}" data-action="find_driver" class="order-action bg-amber-500/20 hover:bg-amber-500/35 text-amber-400 text-xs font-bold px-3 py-2 rounded-lg">Find available driver</button>`;
+        else actions = `<span class="text-xs font-bold text-base-500">${meta.label}</span>`;
+
+        let rateBlock = '';
+        if (o.status === 'completed' && !o.customerRatedByStore) {
+          rateBlock = `<div class="rate-customer-box mt-3 pt-3 border-t border-base-800 flex items-center justify-between" data-oid="${id}" data-cust="${o.customerId}">
+            <span class="text-xs text-base-500">Rate this customer</span>
+            <div class="stars-slot"></div>
+          </div>`;
+        }
+
+        return `
+          <div class="bg-base-850 border border-base-700 rounded-xl p-4">
+            <div class="flex items-start justify-between gap-3 mb-2">
+              <div class="min-w-0">
+                <p class="font-bold text-white truncate">${escapeHtml(o.customerName)}</p>
+                <p class="text-xs text-base-500">${escapeHtml(o.customerPhone || '')}</p>
+                <p class="text-xs text-base-500 truncate">Deliver to: ${escapeHtml(o.deliveryAddress || '')}</p>
+                <div class="flex items-center gap-1 mt-1">${custAvg ? renderStars(custAvg, 11) : '<span class="text-[10px] text-base-600">New customer</span>'}</div>
+                <p class="text-xs text-base-500 truncate mt-1">${itemsLine}</p>
+              </div>
+              <span class="text-sm font-black text-amber-400 shrink-0">${fmtMoney(o.total)}</span>
             </div>
-            
-            <button id="save-profile-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 font-bold text-sm py-2.5 rounded-xl transition">
-                Save and Launch Dashboard
-            </button>
-        </section>
-
-        <!-- 4. CUSTOMER VIEW MODULE -->
-        <section id="view-customer" class="app-panel space-y-6">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="lg:col-span-2 space-y-6">
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-lg font-bold mb-4 text-blue-400">Available Stores</h2>
-                        <div id="cust-stores-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-                    </div>
-                    <div id="cust-products-panel" class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl hidden">
-                        <div class="flex justify-between items-center mb-4">
-                            <h2 id="cust-store-title" class="text-lg font-bold text-white">Products</h2>
-                            <button onclick="closeProductView()" class="text-xs text-gray-400 bg-gray-800 px-2 py-1 rounded">Clear</button>
-                        </div>
-                        <div id="cust-products-list" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-                    </div>
-                </div>
-                <div class="space-y-6">
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-lg font-bold mb-3 text-emerald-400">Shopping Cart</h2>
-                        <div id="cust-cart-items" class="space-y-2 mb-3 max-h-48 overflow-y-auto divide-y divide-gray-800"></div>
-                        <div class="flex justify-between font-bold text-sm mb-4">
-                            <span class="text-gray-400">Total:</span>
-                            <span id="cust-cart-total" class="text-emerald-400">0.00 DZD</span>
-                        </div>
-                        <div class="space-y-2">
-                            <label class="block text-xs text-gray-400">Target Delivery Destination Address</label>
-                            <input type="text" id="cust-delivery-address" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white">
-                            <button id="cust-checkout-btn" class="w-full bg-emerald-600 py-2 rounded-xl text-sm font-bold shadow">Submit Order</button>
-                        </div>
-                    </div>
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-lg font-bold mb-3 text-purple-400">Order Pipelines Tracking</h2>
-                        <div id="cust-tracking-list" class="space-y-3"></div>
-                    </div>
-                </div>
+            <div class="flex items-center justify-between gap-2 mt-3">
+              <span class="text-[10px] uppercase tracking-wide font-bold text-base-500">${meta.label}</span>
+              ${actions}
             </div>
-        </section>
+            ${rateBlock}
+          </div>`;
+      }).join('');
 
-        <!-- 5. STORE OWNER MODULE -->
-        <section id="view-store" class="app-panel space-y-6">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div class="space-y-6">
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-lg font-bold text-green-400 mb-4">Manage Catalog Item</h2>
-                        <div class="space-y-3">
-                            <input type="text" id="store-pname" placeholder="Item Name" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white">
-                            <input type="number" id="store-pprice" placeholder="Valuation (DZD)" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-sm text-white">
-                            <button id="store-add-p-btn" class="w-full bg-indigo-600 py-2 rounded-xl text-sm font-bold">Commit Product to Catalog</button>
-                        </div>
-                    </div>
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">Your Product Catalog</h2>
-                        <div id="store-catalog-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
-                    </div>
-                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                        <h2 class="text-sm font-bold text-yellow-500 uppercase tracking-wide mb-3">Couriers Directory</h2>
-                        <div id="store-drivers-directory" class="space-y-2 max-h-48 overflow-y-auto"></div>
-                    </div>
-                </div>
-                <div class="lg:col-span-2 bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                    <h2 class="text-xl font-bold text-green-400 mb-4">Incoming Processing Orders</h2>
-                    <div id="store-orders-list" class="space-y-4"></div>
-                </div>
+    container.querySelectorAll('.order-action').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!requireDb()) return;
+        const oid = btn.dataset.oid;
+        const action = btn.dataset.action;
+        try {
+          if (action === 'accept') { await update(ref(database, `orders/${oid}`), { status: 'accepted' }); toast('Order accepted.', 'store'); }
+          else if (action === 'find_driver') { await update(ref(database, `orders/${oid}`), { status: 'looking_for_driver' }); toast('Broadcasting to available drivers.', 'store'); }
+        } catch (err) { toast('Action failed.', 'store'); console.error(err); }
+      });
+    });
+
+    container.querySelectorAll('.rate-customer-box').forEach(box => {
+      const slot = box.querySelector('.stars-slot');
+      slot.appendChild(interactiveStars(async (stars) => {
+        if (!requireDb()) return;
+        const oid = box.dataset.oid;
+        const custId = box.dataset.cust;
+        try {
+          const custSnap = await get(ref(database, `users/${custId}`));
+          const cust = custSnap.val() || {};
+          const newSum = (cust.ratingSum || 0) + stars;
+          const newCount = (cust.ratingCount || 0) + 1;
+          await update(ref(database, `users/${custId}`), { ratingSum: newSum, ratingCount: newCount });
+          await update(ref(database, `orders/${oid}`), { customerRatedByStore: true });
+          toast('Thanks for rating this customer!', 'store');
+        } catch (err) { console.error(err); toast('Could not submit rating.', 'store'); }
+      }));
+    });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* DRIVER PORTAL                                                      */
+  /* ---------------------------------------------------------------- */
+  function renderDriverStatus() {
+    const d = allDrivers[currentUid];
+    const status = d ? d.status : 'offline';
+    const isAvailable = status === 'available';
+    $('driverStatusLabel').textContent = isAvailable ? 'Available' : (status === 'busy' ? 'On a delivery' : 'Offline');
+    $('driverToggle').style.backgroundColor = isAvailable ? '#3ECF8E' : '#22303F';
+    $('driverThumb').style.transform = isAvailable ? 'translateX(24px)' : 'translateX(0)';
+    $('driverToggle').disabled = status === 'busy';
+    $('driverToggle').classList.toggle('opacity-50', status === 'busy');
+  }
+
+  $('driverToggle').addEventListener('click', async () => {
+    if (!requireDb()) return;
+    const d = allDrivers[currentUid];
+    if (d && d.status === 'busy') return;
+    const next = d && d.status === 'available' ? 'offline' : 'available';
+    try { await update(ref(database, `drivers/${currentUid}`), { status: next }); toast(next === 'available' ? "You're online." : "You're offline.", 'driver'); }
+    catch (err) { console.error(err); }
+  });
+
+  function renderJobRadar() {
+    const container = $('jobRadar');
+    const jobs = Object.entries(allOrders).filter(([, o]) => o.status === 'looking_for_driver');
+    $('jobCount').textContent = `${jobs.length} job${jobs.length === 1 ? '' : 's'}`;
+    if (jobs.length === 0) { container.innerHTML = `<p class="text-sm text-base-500">No jobs looking for a driver right now.</p>`; return; }
+    const driver = allDrivers[currentUid];
+    const canAccept = driver && driver.status === 'available';
+    container.innerHTML = jobs.map(([id, o]) => {
+      const storeName = (allStores[o.storeId] && allStores[o.storeId].name) || 'Unknown store';
+      const storeAddress = (allStores[o.storeId] && allStores[o.storeId].address) || '';
+      return `
+        <div class="bg-base-850 border border-base-700 rounded-xl p-4">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <div class="min-w-0">
+              <p class="font-bold text-white truncate">${escapeHtml(storeName)} → ${escapeHtml(o.customerName)}</p>
+              <p class="text-xs text-base-500">Pickup: ${escapeHtml(storeAddress)}</p>
+              <p class="text-xs text-base-500">Drop-off: ${escapeHtml(o.deliveryAddress || '')}</p>
+              <p class="text-xs text-base-500">Customer phone: ${escapeHtml(o.customerPhone || '')}</p>
             </div>
-        </section>
+            <span class="text-sm font-black text-amber-400 shrink-0">${fmtMoney(o.total)}</span>
+          </div>
+          <button data-oid="${id}" class="accept-job w-full mt-1 bg-role-driver/20 hover:bg-role-driver/35 text-role-driver text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed" ${canAccept ? '' : 'disabled'}>Accept delivery job</button>
+        </div>`;
+    }).join('');
+    container.querySelectorAll('.accept-job').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!requireDb()) return;
+        const oid = btn.dataset.oid;
+        try {
+          await update(ref(database, `orders/${oid}`), { status: 'delivering', driverId: currentUid });
+          await update(ref(database, `drivers/${currentUid}`), { status: 'busy', activeOrderId: oid });
+          toast('Job accepted. Head to the store!', 'driver');
+        } catch (err) { toast('Could not accept job.', 'driver'); console.error(err); }
+      });
+    });
+  }
 
-        <!-- 6. DRIVER AGENT MODULE -->
-        <section id="view-driver" class="app-panel space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl space-y-4">
-                    <h2 class="text-lg font-bold text-yellow-500">Logistics Controls</h2>
-                    <div class="flex items-center justify-between p-3 bg-gray-950 rounded-xl border border-gray-800">
-                        <span class="text-sm font-medium">Radar Duty State</span>
-                        <button id="driver-radar-toggle" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-red-950 text-red-400 border border-red-900">OFFLINE</button>
-                    </div>
-                </div>
-                <div class="md:col-span-2 bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
-                    <h2 class="text-xl font-bold text-yellow-500 mb-4">Available Dispatch Radar Orders</h2>
-                    <div id="driver-jobs-list" class="space-y-4"></div>
-                </div>
-            </div>
-        </section>
+  function renderActiveJob() {
+    const d = allDrivers[currentUid];
+    const activeOrderId = d && d.activeOrderId;
+    const order = activeOrderId ? allOrders[activeOrderId] : null;
+    if (!order) { $('activeJobCard').classList.add('hidden'); return; }
+    $('activeJobCard').classList.remove('hidden');
+    $('activeJobCustomer').textContent = order.customerName;
+    $('activeJobPhone').textContent = order.customerPhone || '—';
+    $('activeJobAddress').textContent = order.deliveryAddress || '—';
+    $('activeJobTotal').textContent = fmtMoney(order.total);
+    $('markDeliveredBtn').onclick = async () => {
+      if (!requireDb()) return;
+      try {
+        await update(ref(database, `orders/${activeOrderId}`), { status: 'completed' });
+        await update(ref(database, `drivers/${currentUid}`), { status: 'available', activeOrderId: null });
+        toast('Delivery marked complete. Nice work!', 'driver');
+      } catch (err) { toast('Could not update delivery.', 'driver'); console.error(err); }
+    };
+  }
 
-    </main>
-
-    <!-- Firebase Script Architecture Core -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-        import { getDatabase, ref, set, push, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-        const firebaseConfig = { 
-            apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco", 
-            authDomain: "sougi-12109.firebaseapp.com", 
-            databaseURL: "https://sougi-12109-default-rtdb.europe-west1.firebasedatabase.app/",
-            projectId: "sougi-12109", 
-            storageBucket: "sougi-12109.firebasestorage.app", 
-            messagingSenderId: "1001716494860", 
-            appId: "1:1001716494860:web:a03facb4ab30499467f429" 
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getDatabase(app);
-        const provider = new GoogleAuthProvider();
-
-        // System Core App State variables
-        let currentUser = null;
-        let currentUserRole = null;
-        let onboardSelectedRole = null;
-        let activeCart = [];
-        let selectedStoreId = null;
-        let driverRadarActive = false;
-
-        // Routing Engine View switcher
-        function activatePanel(panelId) {
-            document.querySelectorAll('.app-panel').forEach(p => p.classList.remove('active'));
-            document.getElementById(panelId).classList.add('active');
-        }
-
-        // --- AUTH PIPELINE EVENT TRIGGERS ---
-        document.getElementById('google-login-btn').addEventListener('click', () => {
-            signInWithPopup(auth, provider).catch(err => alert("Auth Error: " + err.message));
-        });
-
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            signOut(auth).then(() => window.location.reload());
-        });
-
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                currentUser = user;
-                document.getElementById('auth-status-bar').classList.remove('hidden');
-                document.getElementById('user-display-badge').innerText = user.email;
-                checkUserRoute(user.uid);
-            } else {
-                currentUser = null;
-                document.getElementById('auth-status-bar').classList.add('hidden');
-                activatePanel('panel-login');
-            }
-        });
-
-        function checkUserRoute(uid) {
-            onValue(ref(db, `users/${uid}`), (snapshot) => {
-                const profile = snapshot.val();
-                if (!profile || !profile.role) {
-                    activatePanel('panel-role-select');
-                } else {
-                    currentUserRole = profile.role;
-                    verifyProfileData(uid, profile.role);
-                }
-            }, { onlyOnce: true });
-        }
-
-        window.setUserRole = (role) => {
-            onboardSelectedRole = role;
-            renderProfileFields(role);
-            activatePanel('panel-profile-form');
-        };
-
-        function renderProfileFields(role) {
-            const container = document.getElementById('form-fields-container');
-            let html = `
-                <div>
-                    <label class="block text-xs text-gray-400 font-semibold mb-1">Full Identity Name</label>
-                    <input type="text" id="prof-name" value="${currentUser.displayName || ''}" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white">
-                </div>
-                <div>
-                    <label class="block text-xs text-gray-400 font-semibold mb-1">Contact Phone Number</label>
-                    <input type="text" id="prof-phone" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white">
-                </div>
-                <div>
-                    <label class="block text-xs text-gray-400 font-semibold mb-1">Physical Address</label>
-                    <input type="text" id="prof-address" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white">
-                </div>
-            `;
-            if (role === 'store') {
-                html += `
-                    <div>
-                        <label class="block text-xs text-gray-400 font-semibold mb-1">Store Category Segment</label>
-                        <input type="text" id="prof-category" placeholder="e.g., Grocery, Fast Food" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white">
-                    </div>
-                `;
-            } else if (role === 'driver') {
-                html += `
-                    <div>
-                        <label class="block text-xs text-gray-400 font-semibold mb-1">Vehicle Classification Type</label>
-                        <input type="text" id="prof-vehicle" placeholder="e.g., Moto, Sedan Car" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-gray-400 font-semibold mb-1">Delivery Charge Pricing Per Kilometer (DZD)</label>
-                        <input type="number" id="prof-pricing" placeholder="e.g., 50" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white">
-                    </div>
-                `;
-            }
-            container.innerHTML = html;
-        }
-
-        document.getElementById('save-profile-btn').addEventListener('click', () => {
-            const name = document.getElementById('prof-name').value.trim();
-            const phone = document.getElementById('prof-phone').value.trim();
-            const address = document.getElementById('prof-address').value.trim();
-            
-            if (!name || !phone || !address) {
-                alert("All baseline profile registry inputs are obligatory parameter entries.");
-                return;
-            }
-
-            const role = currentUserRole || onboardSelectedRole;
-            let payload = { uid: currentUser.uid, role, name, phone, address };
-
-            if (role === 'store') {
-                payload.category = document.getElementById('prof-category').value.trim() || 'General';
-            } else if (role === 'driver') {
-                payload.vehicle = document.getElementById('prof-vehicle').value.trim() || 'Moto';
-                payload.pricingPerKm = parseFloat(document.getElementById('prof-pricing').value) || 0;
-            }
-
-            set(ref(db, `users/${currentUser.uid}`), payload).then(() => {
-                if(role === 'store') {
-                    update(ref(db, `stores/${currentUser.uid}`), { name: payload.name, category: payload.category, address: payload.address, phone: payload.phone });
-                }
-                checkUserRoute(currentUser.uid);
-            });
-        });
-
-        function verifyProfileData(uid, role) {
-            onValue(ref(db, `users/${uid}`), (snapshot) => {
-                const data = snapshot.val();
-                if (!data || !data.phone || !data.address) {
-                    onboardSelectedRole = role;
-                    renderProfileFields(role);
-                    activatePanel('panel-profile-form');
-                } else {
-                    launchRoleDashboard(role);
-                }
-            }, { onlyOnce: true });
-        }
-
-        function launchRoleDashboard(role) {
-            if (role === 'customer') {
-                activatePanel('view-customer');
-                initializeCustomerSystem();
-            } else if (role === 'store') {
-                activatePanel('view-store');
-                initializeStoreSystem();
-            } else if (role === 'driver') {
-                activatePanel('view-driver');
-                initializeDriverSystem();
-            }
-        }
-
-        // =========================================================
-        // CUSTOMER ENGINE SUBSYSTEMS
-        // =========================================================
-        function initializeCustomerSystem() {
-            onValue(ref(db, `users/${currentUser.uid}/address`), snap => {
-                document.getElementById('cust-delivery-address').value = snap.val() || '';
-            }, { onlyOnce: true });
-
-            onValue(ref(db, 'stores'), (snapshot) => {
-                const container = document.getElementById('cust-stores-list');
-                container.innerHTML = '';
-                const data = snapshot.val();
-                if (!data) return;
-
-                Object.keys(data).forEach(sId => {
-                    const store = data[sId];
-                    const r = store.rating ? (store.rating / store.ratingCount).toFixed(1) : 'Unrated';
-                    const card = document.createElement('div');
-                    card.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 hover:border-indigo-500 transition cursor-pointer flex justify-between items-center shadow";
-                    card.innerHTML = `
-                        <div>
-                            <h4 class="font-bold text-white">${store.name}</h4>
-                            <p class="text-xs text-gray-400">${store.category} • ⭐ ${r}</p>
-                        </div>
-                        <span class="text-indigo-400 text-xs font-bold">Menu →</span>
-                    `;
-                    card.onclick = () => viewStoreCatalog(sId, store);
-                    container.appendChild(card);
-                });
-            });
-
-            // Bind Live tracking container setup
-            onValue(ref(db, 'orders'), (snapshot) => {
-                const container = document.getElementById('cust-tracking-list');
-                container.innerHTML = '';
-                const data = snapshot.val();
-                if (!data) return;
-
-                Object.keys(data).forEach(oId => {
-                    const order = data[oId];
-                    if (order.customerId !== currentUser.uid) return;
-
-                    const card = document.createElement('div');
-                    card.className = "bg-gray-950 p-3 rounded-xl border border-gray-800 text-xs space-y-2";
-                    card.innerHTML = `
-                        <div class="flex justify-between font-bold text-gray-300">
-                            <span>ID: ${oId.substring(0,6)}</span>
-                            <span class="uppercase text-indigo-400">${order.status}</span>
-                        </div>
-                        <p class="text-gray-400">Store: <span class="text-white font-medium">${order.storeName}</span></p>
-                        <p class="text-gray-400">Bill: <span class="text-emerald-400 font-bold">${parseFloat(order.total).toFixed(2)} DZD</span></p>
-                        ${order.driverId ? `<p class="text-yellow-500 font-medium">Courier: ${order.driverName} (${order.driverPhone})</p>` : ''}
-                        ${order.status === 'completed' ? `
-                            <div class="pt-1 border-t border-gray-900 flex gap-1">
-                                <input type="number" min="1" max="5" placeholder="Stars (1-5)" class="rating-val w-full bg-gray-900 border border-gray-800 px-2 py-1 rounded text-white">
-                                <button class="rate-btn bg-yellow-600 hover:bg-yellow-500 text-gray-950 px-2 py-1 rounded font-bold">Rate</button>
-                            </div>
-                        ` : ''}
-                    `;
-                    if(order.status === 'completed') {
-                        card.querySelector('.rate-btn').onclick = () => {
-                            const val = parseInt(card.querySelector('.rating-val').value);
-                            if(val >= 1 && val <= 5) submitStoreRating(order.storeId, val, oId);
-                        };
-                    }
-                    container.appendChild(card);
-                });
-            });
-        }
-
-        function viewStoreCatalog(storeId, store) {
-            selectedStoreId = storeId;
-            document.getElementById('cust-store-title').innerText = store.name;
-            document.getElementById('cust-products-panel').classList.remove('hidden');
-            const container = document.getElementById('cust-products-list');
-            container.innerHTML = '';
-
-            if (!store.products) {
-                container.innerHTML = `<p class="text-gray-500 text-xs italic">No items available.</p>`;
-                return;
-            }
-
-            Object.keys(store.products).forEach(pId => {
-                const prod = store.products[pId];
-                const card = document.createElement('div');
-                card.className = "bg-gray-950 p-3 rounded-xl border border-gray-800 flex justify-between items-center text-sm";
-                card.innerHTML = `
-                    <div>
-                        <p class="font-bold text-white">${prod.name}</p>
-                        <p class="text-emerald-400 font-bold mt-0.5">${parseFloat(prod.price).toFixed(2)} DZD</p>
-                    </div>
-                    <button class="bg-indigo-600 text-xs px-2.5 py-1 rounded font-bold hover:bg-indigo-500">+ Add</button>
-                `;
-                card.querySelector('button').onclick = () => {
-                    if(activeCart.length > 0 && activeCart[0].storeId !== selectedStoreId) {
-                        alert("Empty your current storefront items bundle cart grid layout instance first.");
-                        return;
-                    }
-                    activeCart.push({ id: pId, name: prod.name, price: parseFloat(prod.price), storeId: selectedStoreId, storeName: store.name });
-                    renderCustomerCart();
-                };
-                container.appendChild(card);
-            });
-        }
-
-        window.closeProductView = () => {
-            document.getElementById('cust-products-panel').classList.add('hidden');
-            selectedStoreId = null;
-        };
-
-        function renderCustomerCart() {
-            const container = document.getElementById('cust-cart-items');
-            container.innerHTML = '';
-            let total = 0;
-            activeCart.forEach((item, index) => {
-                total += item.price;
-                const div = document.createElement('div');
-                div.className = "flex justify-between items-center text-xs py-1.5";
-                div.innerHTML = `<span>${item.name}</span><div class="flex items-center gap-2"><span class="text-emerald-400 font-bold">${item.price} DZD</span><button class="text-red-500 font-bold">✕</button></div>`;
-                div.querySelector('button').onclick = () => { activeCart.splice(index, 1); renderCustomerCart(); };
-                container.appendChild(div);
-            });
-            document.getElementById('cust-cart-total').innerText = `${total.toFixed(2)} DZD`;
-        }
-
-        document.getElementById('cust-checkout-btn').addEventListener('click', () => {
-            const destAddr = document.getElementById('cust-delivery-address').value.trim();
-            if (activeCart.length === 0 || !destAddr) {
-                alert("Ensure your checkout cart is populated and a delivery destination address string is set.");
-                return;
-            }
-
-            onValue(ref(db, `users/${currentUser.uid}`), (userSnap) => {
-                const cProf = userSnap.val();
-                const newOrderRef = push(ref(db, 'orders'));
-                const payload = {
-                    customerId: currentUser.uid,
-                    customerName: cProf.name,
-                    customerPhone: cProf.phone,
-                    customerAddress: destAddr,
-                    storeId: activeCart[0].storeId,
-                    storeName: activeCart[0].storeName,
-                    items: activeCart,
-                    total: activeCart.reduce((sum, i) => sum + i.price, 0),
-                    status: 'pending',
-                    driverId: ''
-                };
-                set(newOrderRef, payload).then(() => {
-                    activeCart = [];
-                    renderCustomerCart();
-                    alert("Order transaction routing finalized successfully.");
-                });
-            }, { onlyOnce: true });
-        });
-
-        function submitStoreRating(storeId, ratingVal, orderId) {
-            const storeRatingRef = ref(db, `stores/${storeId}`);
-            onValue(storeRatingRef, (snapshot) => {
-                const store = snapshot.val();
-                if(!store) return;
-                const newRating = (store.rating || 0) + ratingVal;
-                const newCount = (store.ratingCount || 0) + 1;
-                update(storeRatingRef, { rating: newRating, ratingCount: newCount }).then(() => {
-                    remove(ref(db, `orders/${orderId}`)); // Archiving closed order nodes
-                    alert("Rating logged. Order archived.");
-                });
-            }, { onlyOnce: true });
-        }
-
-        // =========================================================
-        // STORE OWNER ENGINE SUBSYSTEMS
-        // =========================================================
-        function initializeStoreSystem() {
-            // Bind inventory view pipelines
-            onValue(ref(db, `stores/${currentUser.uid}/products`), (snapshot) => {
-                const container = document.getElementById('store-catalog-list');
-                container.innerHTML = '';
-                const data = snapshot.val();
-                if (!data) return;
-
-                Object.keys(data).forEach(pId => {
-                    const p = data[pId];
-                    const div = document.createElement('div');
-                    div.className = "bg-gray-950 p-2.5 rounded-xl border border-gray-800 flex justify-between items-center text-xs";
-                    div.innerHTML = `<div><p class="font-bold text-white">${p.name}</p><p class="text-emerald-400 font-semibold mt-0.5">${p.price} DZD</p></div><button class="text-red-500 font-bold hover:text-red-400 px-2">Delete</button>`;
-                    div.querySelector('button').onclick = () => remove(ref(db, `stores/${currentUser.uid}/products/${pId}`));
-                    container.appendChild(div);
-                });
-            });
-
-            // Bind Driver Availability Directories
-            onValue(ref(db, 'users'), (snapshot) => {
-                const container = document.getElementById('store-drivers-directory');
-                container.innerHTML = '';
-                const data = snapshot.val();
-                if(!data) return;
-
-                Object.keys(data).forEach(uid => {
-                    const u = data[uid];
-                    if (u.role !== 'driver' || u.status !== 'available') return;
-                    const el = document.createElement('div');
-                    el.className = "p-2 bg-gray-950 rounded-lg border border-gray-800 text-xs flex justify-between items-center";
-                    el.innerHTML = `<span>⚡ <b>${u.name}</b> (${u.vehicle})</span> <span class="text-yellow-500 font-bold">${u.pricingPerKm} DZD/Km</span>`;
-                    container.appendChild(el);
-                });
-            });
-
-            // Bind Live Orders processing loop feeds
-            onValue(ref(db, 'orders'), (snapshot) => {
-                const container = document.getElementById('store-orders-list');
-                container.innerHTML = '';
-                const data = snapshot.val();
-                if (!data) return;
-
-                Object.keys(data).forEach(oId => {
-                    const order = data[oId];
-                    if (order.storeId !== currentUser.uid) return;
-
-                    const itemNames = order.items.map(i => i.name).join(', ');
-                    const card = document.createElement('div');
-                    card.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 text-xs space-y-3 shadow-md";
-                    card.innerHTML = `
-                        <div class="flex justify-between items-center border-b border-gray-900 pb-2">
-                            <span class="font-mono text-gray-400">ID: ${oId}</span>
-                            <span class="px-2 py-0.5 rounded font-bold bg-gray-900 border border-gray-800 text-gray-300 uppercase">${order.status}</span>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-400">
-                            <p>Customer: <span class="text-white font-bold">${order.customerName}</span></p>
-                            <p>Phone Connection: <span class="text-white underline font-semibold">${order.customerPhone}</span></p>
-                            <p class="md:col-span-2">Delivery Target Destination Address: <span class="text-indigo-400 font-medium">${order.customerAddress}</span></p>
-                            <p class="md:col-span-2">Manifest Items: <span class="text-gray-300 italic">${itemNames}</span></p>
-                        </div>
-                        <p class="text-sm font-bold text-emerald-400">Total Order Revenue: ${parseFloat(order.total).toFixed(2)} DZD</p>
-                        <div class="pt-1 flex gap-2">
-                            <button class="ac-btn bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg font-bold transition">Accept Order</button>
-                            <button class="dp-btn bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg font-bold transition">Find Available Driver</button>
-                        </div>
-                    `;
-                    card.querySelector('.ac-btn').onclick = () => update(ref(db, `orders/${oId}`), { status: 'accepted' });
-                    card.querySelector('.dp-btn').onclick = () => update(ref(db, `orders/${oId}`), { status: 'looking_for_driver' });
-                    container.appendChild(card);
-                });
-            });
-        }
-
-        document.getElementById('store-add-p-btn').addEventListener('click', () => {
-            const name = document.getElementById('store-pname').value.trim();
-            const price = parseFloat(document.getElementById('store-pprice').value);
-            if (!name || !price) return;
-
-            const pRef = push(ref(db, `stores/${currentUser.uid}/products`));
-            set(pRef, { name, price }).then(() => {
-                document.getElementById('store-pname').value = '';
-                document.getElementById('store-pprice').value = '';
-            });
-        });
-
-        // =========================================================
-        // DRIVER AGENT ENGINE SUBSYSTEMS
-        // =========================================================
-        function initializeDriverSystem() {
-            const toggle = document.getElementById('driver-radar-toggle');
-            
-            toggle.onclick = () => {
-                driverRadarActive = !driverRadarActive;
-                if(driverRadarActive) {
-                    toggle.innerText = "ONLINE";
-                    toggle.className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-green-900 text-green-200 border border-green-700";
-                    update(ref(db, `users/${currentUser.uid}`), { status: 'available' });
-                    bindDriverRadarFeed();
-                } else {
-                    toggle.innerText = "OFFLINE";
-                    toggle.className = "px-4 py-1.5 rounded-lg text-xs font-bold bg-red-950 text-red-400 border border-red-900";
-                    update(ref(db, `users/${currentUser.uid}`), { status: 'offline' });
-                    document.getElementById('driver-jobs-list').innerHTML = '';
-                }
-            };
-        }
-
-        function bindDriverRadarFeed() {
-            onValue(ref(db, 'orders'), (snapshot) => {
-                if(!driverRadarActive) return;
-                const container = document.getElementById('driver-jobs-list');
-                container.innerHTML = '';
-                const data = snapshot.val();
-                if(!data) return;
-
-                onValue(ref(db, `users/${currentUser.uid}`), (dSnap) => {
-                    const dProf = dSnap.val();
-                    
-                    Object.keys(data).forEach(oId => {
-                        const order = data[oId];
-                        const isLook = order.status === 'looking_for_driver';
-                        const isMine = order.driverId === currentUser.uid && order.status === 'delivering';
-
-                        if(!isLook && !isMine) return;
-
-                        const card = document.createElement('div');
-                        card.className = `p-4 rounded-xl border text-xs space-y-3 ${isMine ? 'bg-orange-950/40 border-orange-800':'bg-gray-950 border-gray-800'}`;
-                        card.innerHTML = `
-                            <div class="flex justify-between items-center">
-                                <span class="font-bold text-gray-200 text-sm">Pickup: ${order.storeName}</span>
-                                <span class="px-2 py-0.5 rounded font-bold uppercase ${isMine ? 'bg-orange-600':'bg-purple-900'} text-white">${order.status}</span>
-                            </div>
-                            <div class="space-y-1 text-gray-400">
-                                <p>Customer Recipient: <span class="text-white font-bold">${order.customerName}</span></p>
-                                <p>Customer Phone Line: <span class="text-indigo-400 underline font-semibold">${order.customerPhone}</span></p>
-                                <p>Destination Address: <span class="text-white font-medium">${order.customerAddress}</span></p>
-                                <p class="text-emerald-400 text-sm font-bold pt-1">COD Collection Payout: ${parseFloat(order.total).toFixed(2)} DZD</p>
-                            </div>
-                            <button class="act-btn w-full py-2 rounded-lg text-xs font-bold tracking-wide transition mt-1"></button>
-                        `;
-
-                        const btn = card.querySelector('.act-btn');
-                        if(isLook) {
-                            btn.innerText = "Accept Delivery Job Request";
-                            btn.className += " bg-yellow-600 text-gray-950 hover:bg-yellow-500";
-                            btn.onclick = () => {
-                                update(ref(db, `orders/${oId}`), {
-                                    status: 'delivering',
-                                    driverId: currentUser.uid,
-                                    driverName: dProf.name,
-                                    driverPhone: dProf.phone
-                                });
-                            };
-                        } else {
-                            btn.innerText = "Mark Package as Delivered";
-                            btn.className += " bg-green-600 text-white hover:bg-green-500";
-                            btn.onclick = () => update(ref(db, `orders/${oId}`), { status: 'completed' });
-                        }
-                        container.appendChild(card);
-                    });
-                }, { onlyOnce: true });
-            });
-        }
-    </script>
+  /* Initial paint */
+  renderCart();
+</script>
 </body>
 </html>
