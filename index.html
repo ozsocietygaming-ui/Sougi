@@ -1,945 +1,594 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Sougi — Hyperlocal Marketplace</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    theme: {
-      extend: {
-        fontFamily: { cairo: ['Cairo', 'sans-serif'] },
-        colors: {
-          base: {
-            950: '#0A0E14',
-            900: '#0F141C',
-            850: '#131924',
-            800: '#182130',
-            700: '#22303F',
-            600: '#324256',
-            500: '#526074',
-            400: '#8493A6',
-            300: '#B7C1CE',
-          },
-          amber: {
-            400: '#F5B942',
-            500: '#EFA61E',
-            600: '#D68A0C',
-          },
-          role: {
-            customer: '#4FA6F2',
-            store: '#B98CF2',
-            driver: '#3ECF8E',
-          }
-        },
-        boxShadow: {
-          'glow-amber': '0 0 0 1px rgba(239,166,30,0.25), 0 8px 24px -8px rgba(239,166,30,0.35)',
-          'glow-customer': '0 0 0 1px rgba(79,166,242,0.25), 0 8px 24px -8px rgba(79,166,242,0.35)',
-          'glow-store': '0 0 0 1px rgba(185,140,242,0.25), 0 8px 24px -8px rgba(185,140,242,0.35)',
-          'glow-driver': '0 0 0 1px rgba(62,207,142,0.25), 0 8px 24px -8px rgba(62,207,142,0.35)',
-        }
-      }
-    }
-  }
-</script>
-<style>
-  * { font-family: 'Cairo', sans-serif; }
-  html { scroll-behavior: smooth; }
-  body {
-    background:
-      radial-gradient(1200px 600px at 15% -10%, rgba(79,166,242,0.08), transparent 60%),
-      radial-gradient(1000px 500px at 100% 0%, rgba(185,140,242,0.08), transparent 55%),
-      #0A0E14;
-    min-height: 100vh;
-  }
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #22303F; border-radius: 999px; }
-  .view { display: none; animation: fadeSlide 0.35s ease; }
-  .view.active { display: block; }
-  @keyframes fadeSlide {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .role-btn { position: relative; transition: all 0.25s ease; }
-  .role-btn[data-active="true"] { color: #0A0E14; }
-  .status-pulse::before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 999px;
-    animation: pulseRing 1.8s ease-out infinite;
-  }
-  @keyframes pulseRing {
-    0% { box-shadow: 0 0 0 0 rgba(62,207,142,0.55); }
-    100% { box-shadow: 0 0 0 8px rgba(62,207,142,0); }
-  }
-  .card-hover { transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
-  .card-hover:hover { transform: translateY(-2px); }
-  .track-node { transition: all 0.4s ease; }
-  .toast-enter { animation: toastIn 0.3s ease; }
-  @keyframes toastIn {
-    from { opacity: 0; transform: translateY(12px) scale(0.96); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-  }
-  input::placeholder, textarea::placeholder { color: #526074; }
-  .skeleton { background: linear-gradient(90deg, #131924 25%, #182130 37%, #131924 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
-  @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
-  .switch-track { transition: background-color 0.25s ease; }
-  .switch-thumb { transition: transform 0.25s ease; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sougi - Marketplace Platform</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Cairo Font for a clean local tech feel -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        /* Smooth view switching transitions */
+        .view-panel { display: none; }
+        .view-panel.active { display: block; }
+    </style>
 </head>
-<body class="text-base-300 antialiased">
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col">
 
-<!-- ============ TOP BAR ============ -->
-<header class="sticky top-0 z-40 backdrop-blur-xl bg-base-950/80 border-b border-base-800">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-2.5 shrink-0">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 grid place-items-center shadow-glow-amber">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M3 9L12 3L21 9V20C21 20.55 20.55 21 20 21H4C3.45 21 3 20.55 3 20V9Z" stroke="#0A0E14" stroke-width="2" stroke-linejoin="round"/><path d="M9 21V13H15V21" stroke="#0A0E14" stroke-width="2" stroke-linejoin="round"/></svg>
-      </div>
-      <div>
-        <p class="font-black text-white text-lg leading-none tracking-tight">Sougi</p>
-        <p class="text-[10px] text-base-500 leading-none mt-1 tracking-wide uppercase">Hyperlocal Marketplace</p>
-      </div>
-    </div>
-
-    <nav id="roleSwitcher" class="flex items-center gap-1 bg-base-900 border border-base-800 rounded-2xl p-1">
-      <button data-role="customer" class="role-btn px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M9 22C9.55 22 10 21.55 10 21C10 20.45 9.55 20 9 20C8.45 20 8 20.45 8 21C8 21.55 8.45 22 9 22Z" fill="currentColor"/><path d="M20 22C20.55 22 21 21.55 21 21C21 20.45 20.55 20 20 20C19.45 20 19 20.45 19 21C19 21.55 19.45 22 20 22Z" fill="currentColor"/><path d="M1 1H5L7.68 14.39C7.77 14.87 8.02 15.29 8.38 15.6C8.75 15.9 9.21 16.07 9.68 16.07H19.4C19.87 16.07 20.33 15.9 20.7 15.6C21.06 15.29 21.31 14.87 21.4 14.39L23 6H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="hidden sm:inline">Customer</span>
-      </button>
-      <button data-role="store" class="role-btn px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M3 9L4 3H20L21 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 9C3 9 3 11 5.5 11C8 11 8 9 8 9C8 9 8 11 10.5 11C13 11 13 9 13 9C13 9 13 11 15.5 11C18 11 18 9 18 9C18 9 18 11 20.5 11C21.5 11 21 9 21 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 11V20H19V11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span class="hidden sm:inline">Store Panel</span>
-      </button>
-      <button data-role="driver" class="role-btn px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" class="shrink-0"><path d="M14 16H9M14 16V19H9V16M14 16H19V11L16 6H9L6 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="19" r="2" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="19" r="2" stroke="currentColor" stroke-width="2"/><path d="M3 11H9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span class="hidden sm:inline">Driver Portal</span>
-      </button>
-    </nav>
-
-    <div class="hidden md:flex items-center gap-2 text-xs text-base-500">
-      <span id="connDot" class="w-2 h-2 rounded-full bg-base-600"></span>
-      <span id="connLabel">Connecting…</span>
-    </div>
-  </div>
-</header>
-
-<!-- ============ TOAST ============ -->
-<div id="toastHost" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 items-end"></div>
-
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-
-  <!-- =========================================================== -->
-  <!-- CUSTOMER VIEW -->
-  <!-- =========================================================== -->
-  <section id="view-customer" class="view active">
-    <div class="mb-8">
-      <p class="text-xs font-bold uppercase tracking-widest text-role-customer mb-2">Customer View</p>
-      <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">What are we picking up today?</h1>
-      <p class="text-base-400 mt-2 max-w-xl">Browse stores near you, build a cart, and pay cash on delivery. Your order updates live the moment a store or driver acts on it.</p>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Stores + Products -->
-      <div class="lg:col-span-2 space-y-6">
-        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="font-bold text-white text-lg">Stores near you</h2>
-            <span id="storeCount" class="text-xs text-base-500 font-semibold">0 stores</span>
-          </div>
-          <div id="storeGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div class="skeleton h-24 rounded-xl"></div>
-            <div class="skeleton h-24 rounded-xl"></div>
-          </div>
-        </div>
-
-        <div id="productPanel" class="bg-base-900 border border-base-800 rounded-2xl p-5 hidden">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <p class="text-xs text-base-500 font-semibold">Products from</p>
-              <h2 id="activeStoreName" class="font-bold text-white text-lg">—</h2>
+    <!-- Persistent Role Switcher Bar -->
+    <header class="bg-gray-900 border-b border-gray-800 sticky top-0 z-50 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-lg tracking-wider text-white">S</div>
+                <span class="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">SOUGI</span>
             </div>
-            <button id="closeProductPanel" class="text-base-500 hover:text-white text-xs font-bold">Close ✕</button>
-          </div>
-          <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
-        </div>
-      </div>
-
-      <!-- Cart + Tracking -->
-      <div class="space-y-6">
-        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="font-bold text-white text-lg">Your cart</h2>
-            <span id="cartCount" class="text-xs text-base-500 font-semibold">0 items</span>
-          </div>
-          <div id="cartItems" class="space-y-2 mb-4">
-            <p class="text-sm text-base-500">Cart is empty. Add products to get started.</p>
-          </div>
-          <div class="flex items-center justify-between border-t border-base-800 pt-3 mb-4">
-            <span class="text-sm font-semibold text-base-400">Total</span>
-            <span id="cartTotal" class="text-xl font-black text-amber-400">0 DZD</span>
-          </div>
-          <form id="checkoutForm" class="space-y-3">
-            <input id="customerName" type="text" required placeholder="Your full name" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent" />
-            <div class="flex items-center gap-2 bg-base-850 border border-base-700 rounded-xl px-4 py-2.5">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="6" width="20" height="12" rx="2" stroke="#3ECF8E" stroke-width="2"/><path d="M2 10H22" stroke="#3ECF8E" stroke-width="2"/></svg>
-              <span class="text-sm text-base-300 font-medium">Cash on Delivery</span>
-              <span class="ml-auto text-[10px] font-bold text-role-driver bg-role-driver/10 px-2 py-0.5 rounded-full">Default</span>
+            <div class="flex bg-gray-950 p-1 rounded-xl border border-gray-800 shadow-inner">
+                <button id="btn-customer" class="role-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 bg-blue-600 text-white shadow">
+                    Customer View
+                </button>
+                <button id="btn-store" class="role-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-400 hover:text-gray-200">
+                    Store Panel
+                </button>
+                <button id="btn-driver" class="role-btn px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-400 hover:text-gray-200">
+                    Driver Portal
+                </button>
             </div>
-            <button type="submit" id="placeOrderBtn" class="w-full bg-amber-500 hover:bg-amber-400 text-base-950 font-bold py-3 rounded-xl transition-colors shadow-glow-amber disabled:opacity-40 disabled:cursor-not-allowed">Place order</button>
-          </form>
         </div>
+    </header>
 
-        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
-          <h2 class="font-bold text-white text-lg mb-4">Order tracking</h2>
-          <div id="trackingEmpty" class="text-sm text-base-500">No active order yet. Place an order to track it live here.</div>
-          <div id="trackingActive" class="hidden space-y-5">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-xs text-base-500">Order for</p>
-                <p id="trackName" class="font-bold text-white">—</p>
-              </div>
-              <p id="trackTotal" class="font-black text-amber-400">—</p>
+    <!-- Main Dynamic Application Containers -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+
+        <!-- ================= CUSTOMER VIEW ================= -->
+        <section id="view-customer" class="view-panel active space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Stores & Products Grid -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
+                        <h2 class="text-xl font-bold mb-4 text-blue-400 flex items-center gap-2">
+                            🏪 Browse Nearby Stores
+                        </h2>
+                        <div id="customer-stores-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Injected Dynamically -->
+                            <p class="text-gray-500 text-sm italic col-span-2">No registered stores available yet.</p>
+                        </div>
+                    </div>
+
+                    <div id="customer-products-panel" class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl hidden">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 id="selected-store-title" class="text-xl font-bold text-white">Products</h2>
+                            <button id="close-products-btn" class="text-xs text-gray-400 hover:text-white bg-gray-800 px-2 py-1 rounded">Clear Selection</button>
+                        </div>
+                        <div id="customer-products-container" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Injected Dynamically -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cart & Realtime Order Tracking Drawer -->
+                <div class="space-y-6">
+                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl flex flex-col">
+                        <h2 class="text-xl font-bold mb-4 text-emerald-400 flex items-center gap-2">
+                            🛒 Shopping Cart
+                        </h2>
+                        <div id="cart-items" class="space-y-3 flex-1 overflow-y-auto max-h-60 mb-4 divide-y divide-gray-800">
+                            <p class="text-gray-500 text-sm italic py-2">Your cart is empty.</p>
+                        </div>
+                        <div class="border-t border-gray-800 pt-3 mb-4 flex justify-between items-center">
+                            <span class="text-gray-400">Total Amount:</span>
+                            <span id="cart-total" class="text-xl font-bold text-emerald-400">0.00 DZD</span>
+                        </div>
+                        <div class="space-y-2">
+                            <input type="text" id="cust-name-input" placeholder="Your Full Name" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-emerald-500 text-white">
+                            <button id="checkout-btn" class="w-full bg-emerald-600 hover:bg-emerald-500 transition font-semibold text-sm py-2.5 rounded-xl shadow-lg shadow-emerald-900/20">
+                                Place Order (Cash on Delivery)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Live Tracker -->
+                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
+                        <h2 class="text-xl font-bold mb-4 text-purple-400 flex items-center gap-2">
+                            📍 Live Order Tracking
+                        </h2>
+                        <div id="customer-tracking-container" class="space-y-3">
+                            <p class="text-gray-500 text-sm italic">No active orders placed yet.</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center justify-between" id="trackStages">
-              <!-- stages injected -->
+        </section>
+
+        <!-- ================= STORE PANEL ================= -->
+        <section id="view-store" class="view-panel space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Manage Identity & Inventory -->
+                <div class="space-y-6">
+                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
+                        <h2 class="text-lg font-bold mb-4 text-green-400">Store Settings</h2>
+                        <div class="space-y-3">
+                            <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold">Store Identifier (Slug)</label>
+                            <input type="text" id="store-id-input" value="my-store-1" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
+                            <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold">Display Name</label>
+                            <input type="text" id="store-name-input" placeholder="e.g., Fast Delivery Hub" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
+                            <button id="save-store-btn" class="w-full bg-green-600 hover:bg-green-500 font-semibold text-sm py-2 rounded-xl transition">
+                                Register / Sync Store
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
+                        <h2 class="text-lg font-bold mb-4 text-green-400">Add New Product</h2>
+                        <div class="space-y-3">
+                            <input type="text" id="prod-name-input" placeholder="Product Name" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
+                            <input type="number" id="prod-price-input" placeholder="Price (DZD)" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
+                            <button id="add-product-btn" class="w-full bg-gray-800 hover:bg-gray-700 border border-gray-700 font-semibold text-sm py-2 rounded-xl transition">
+                                Save Product to Catalog
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Incoming Orders Feed -->
+                <div class="md:col-span-2 bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
+                    <h2 class="text-xl font-bold mb-4 text-green-400 flex items-center gap-2">
+                        📥 Live Store Orders
+                    </h2>
+                    <div id="store-orders-container" class="space-y-4">
+                        <p class="text-gray-500 text-sm italic">Register and sync your store to receive incoming live feeds.</p>
+                    </div>
+                </div>
             </div>
-            <p id="trackStatusLabel" class="text-center text-sm font-bold text-role-customer bg-role-customer/10 rounded-lg py-2"></p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+        </section>
 
-  <!-- =========================================================== -->
-  <!-- STORE PANEL -->
-  <!-- =========================================================== -->
-  <section id="view-store" class="view">
-    <div class="mb-8">
-      <p class="text-xs font-bold uppercase tracking-widest text-role-store mb-2">Store Panel</p>
-      <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Run your storefront</h1>
-      <p class="text-base-400 mt-2 max-w-xl">Register your store, list what you're selling, and manage incoming orders as they arrive in real time.</p>
-    </div>
+        <!-- ================= DRIVER PORTAL ================= -->
+        <section id="view-driver" class="view-panel space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Driver Status Controller -->
+                <div class="bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl space-y-4">
+                    <h2 class="text-lg font-bold text-yellow-500">Driver Parameters</h2>
+                    <div>
+                        <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1">Driver Profile Name</label>
+                        <input type="text" id="driver-name-input" value="Driver_Alpha" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-2 text-sm text-white focus:outline-none">
+                    </div>
+                    <div class="flex items-center justify-between p-3 bg-gray-950 rounded-xl border border-gray-800">
+                        <span class="text-sm font-medium">Availability Status</span>
+                        <button id="driver-status-toggle" class="px-4 py-1.5 rounded-lg text-xs font-bold transition bg-red-900 text-red-200 border border-red-700">
+                            OFFLINE
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 leading-relaxed">Toggle your status to ONLINE to poll system pipelines for newly confirmed warehouse delivery dispatch notifications.</p>
+                </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="space-y-6">
-        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
-          <h2 class="font-bold text-white text-lg mb-4">Store identity</h2>
-          <form id="storeForm" class="space-y-3">
-            <input id="storeNameInput" type="text" required placeholder="e.g. Yasmine Grocery" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store focus:border-transparent" />
-            <button type="submit" class="w-full bg-role-store/90 hover:bg-role-store text-base-950 font-bold py-2.5 rounded-xl transition-colors shadow-glow-store">Save store</button>
-          </form>
-          <div id="storeIdentityBadge" class="hidden mt-4 flex items-center gap-2 bg-base-850 border border-base-700 rounded-xl px-4 py-2.5">
-            <span class="w-2 h-2 rounded-full bg-role-driver"></span>
-            <span class="text-sm text-base-300">Live as <b id="currentStoreLabel" class="text-white"></b></span>
-          </div>
-        </div>
-
-        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
-          <h2 class="font-bold text-white text-lg mb-4">Add a product</h2>
-          <form id="productForm" class="space-y-3">
-            <input id="productNameInput" type="text" required placeholder="Product name" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store focus:border-transparent" />
-            <input id="productPriceInput" type="number" min="1" step="1" required placeholder="Price (DZD)" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-store focus:border-transparent" />
-            <button type="submit" class="w-full bg-base-800 hover:bg-base-700 text-white font-bold py-2.5 rounded-xl transition-colors border border-base-700">Add product</button>
-          </form>
-          <div id="storeProductList" class="mt-4 space-y-2 max-h-56 overflow-y-auto pr-1"></div>
-        </div>
-      </div>
-
-      <div class="lg:col-span-2">
-        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="font-bold text-white text-lg">Incoming orders</h2>
-            <span id="storeOrderCount" class="text-xs text-base-500 font-semibold">0 orders</span>
-          </div>
-          <div id="storeOrders" class="space-y-3">
-            <p class="text-sm text-base-500">Register your store to start receiving orders.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- =========================================================== -->
-  <!-- DRIVER PORTAL -->
-  <!-- =========================================================== -->
-  <section id="view-driver" class="view">
-    <div class="mb-8">
-      <p class="text-xs font-bold uppercase tracking-widest text-role-driver mb-2">Driver Portal</p>
-      <h1 class="text-3xl sm:text-4xl font-black text-white tracking-tight">Find your next delivery</h1>
-      <p class="text-base-400 mt-2 max-w-xl">Go online, watch the job radar for new deliveries, and mark them complete once dropped off.</p>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="space-y-6">
-        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
-          <h2 class="font-bold text-white text-lg mb-4">Driver profile</h2>
-          <form id="driverForm" class="space-y-3 mb-4">
-            <input id="driverNameInput" type="text" required placeholder="Your full name" class="w-full bg-base-850 border border-base-700 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-role-driver focus:border-transparent" />
-            <button type="submit" class="w-full bg-role-driver/90 hover:bg-role-driver text-base-950 font-bold py-2.5 rounded-xl transition-colors shadow-glow-driver">Save profile</button>
-          </form>
-          <div id="driverStatusBox" class="hidden flex items-center justify-between bg-base-850 border border-base-700 rounded-xl px-4 py-3">
-            <div>
-              <p class="text-xs text-base-500">Status</p>
-              <p id="driverStatusLabel" class="font-bold text-white">Offline</p>
+                <!-- Available Delivery Jobs Board -->
+                <div class="md:col-span-2 bg-gray-900 p-6 rounded-2xl border border-gray-800 shadow-xl">
+                    <h2 class="text-xl font-bold mb-4 text-yellow-500 flex items-center gap-2">
+                        🛰️ Available Dispatch Radar Jobs
+                    </h2>
+                    <div id="driver-jobs-container" class="space-y-4">
+                        <p class="text-gray-500 text-sm italic">Set your profile status to ONLINE to receive incoming open requests.</p>
+                    </div>
+                </div>
             </div>
-            <button id="driverToggle" class="switch-track relative w-14 h-8 rounded-full bg-base-700">
-              <span id="driverThumb" class="switch-thumb absolute top-1 left-1 w-6 h-6 rounded-full bg-white block"></span>
-            </button>
-          </div>
-        </div>
+        </section>
 
-        <div id="activeJobCard" class="hidden bg-base-900 border border-role-driver/40 rounded-2xl p-5">
-          <p class="text-xs font-bold uppercase tracking-widest text-role-driver mb-3">Active delivery</p>
-          <p class="text-sm text-base-400">Customer</p>
-          <p id="activeJobCustomer" class="font-bold text-white mb-3">—</p>
-          <p class="text-sm text-base-400">Total (COD)</p>
-          <p id="activeJobTotal" class="font-black text-amber-400 mb-4">—</p>
-          <button id="markDeliveredBtn" class="w-full bg-amber-500 hover:bg-amber-400 text-base-950 font-bold py-2.5 rounded-xl transition-colors shadow-glow-amber">Mark as delivered</button>
-        </div>
-      </div>
+    </main>
 
-      <div class="lg:col-span-2">
-        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="font-bold text-white text-lg flex items-center gap-2">
-              <span class="relative w-2.5 h-2.5 rounded-full bg-role-driver status-pulse"></span>
-              Available delivery jobs
-            </h2>
-            <span id="jobCount" class="text-xs text-base-500 font-semibold">0 jobs</span>
-          </div>
-          <div id="jobRadar" class="space-y-3">
-            <p class="text-sm text-base-500">No jobs looking for a driver right now.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+    <footer class="bg-gray-900 border-t border-gray-800 text-center py-4 text-xs text-gray-500">
+        Sougi Multi-Role Infrastructure Framework Engine.
+    </footer>
 
-</main>
+    <!-- Firebase Script Configuration Block Bundle -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-<footer class="max-w-7xl mx-auto px-4 sm:px-6 pb-8 pt-4 text-center text-xs text-base-600">
-  Sougi — a three-sided demo marketplace. Data syncs live via Firebase Realtime Database.
-</footer>
+        // Verified Application Target Injector with European Region Database URL Route
+        const firebaseConfig = { 
+            apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco", 
+            authDomain: "sougi-12109.firebaseapp.com", 
+            databaseURL: "https://sougi-12109-default-rtdb.europe-west1.firebasedatabase.app/",
+            projectId: "sougi-12109", 
+            storageBucket: "sougi-12109.firebasestorage.app", 
+            messagingSenderId: "1001716494860", 
+            appId: "1:1001716494860:web:a03facb4ab30499467f429" 
+        };
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAO85-H2Rw8aCv3zS-mgDXbLX3cED8rRco",
-    authDomain: "sougi-12109.firebaseapp.com",
-    databaseURL: "https://sougi-12109-default-rtdb.europe-west1.firebasedatabase.app/",
-    projectId: "sougi-12109",
-    storageBucket: "sougi-12109.firebasestorage.app",
-    messagingSenderId: "1001716494860",
-    appId: "1:1001716494860:web:a03facb4ab30499467f429"
-  };
+        // Client State Variables
+        let currentStoreSelection = null;
+        let localCart = [];
+        let isDriverOnline = false;
 
-  let app = null;
-  let database = null;
-  let dbError = null;
-  try {
-    app = initializeApp(firebaseConfig);
-    database = getDatabase(app);
-  } catch (err) {
-    dbError = err;
-    console.error('Firebase init failed:', err);
-  }
+        // --- DOM Elements ---
+        const btnCustomer = document.getElementById('btn-customer');
+        const btnStore = document.getElementById('btn-store');
+        const btnDriver = document.getElementById('btn-driver');
+        const panels = document.querySelectorAll('.view-panel');
+        const roleBtns = document.querySelectorAll('.role-btn');
 
-  function showConfigBanner(message) {
-    const bar = document.createElement('div');
-    bar.className = 'bg-red-500/15 border-b border-red-500/40 text-red-300 text-xs sm:text-sm font-semibold text-center px-4 py-2';
-    bar.textContent = message;
-    document.body.prepend(bar);
-  }
-  if (dbError) {
-    showConfigBanner('Database connection failed: ' + dbError.message + ' — buttons will not save data until this is fixed.');
-  }
+        // Navigation Controllers
+        function switchPanel(activeId, activeBtn) {
+            panels.forEach(p => p.classList.remove('active'));
+            document.getElementById(activeId).classList.add('active');
+            
+            roleBtns.forEach(b => {
+                b.classList.remove('bg-blue-600', 'bg-green-600', 'bg-yellow-600', 'text-white', 'shadow');
+                b.classList.add('text-gray-400', 'hover:text-gray-200');
+            });
 
-  // Guards so every Firebase call fails loudly (a toast) instead of silently,
-  // and so a missing/broken database never prevents buttons from responding.
-  function requireDb() {
-    if (!database) {
-      toast('Database is not connected — check the banner above.', 'amber');
-      return false;
-    }
-    return true;
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Utilities                                                          */
-  /* ---------------------------------------------------------------- */
-  const $ = (id) => document.getElementById(id);
-  const fmtMoney = (n) => `${Number(n || 0).toLocaleString()} DZD`;
-  const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-
-  function toast(message, tone = 'amber') {
-    const toneMap = {
-      amber: 'border-amber-500/40 text-amber-300',
-      customer: 'border-role-customer/40 text-role-customer',
-      store: 'border-role-store/40 text-role-store',
-      driver: 'border-role-driver/40 text-role-driver',
-    };
-    const el = document.createElement('div');
-    el.className = `toast-enter bg-base-900 border ${toneMap[tone] || toneMap.amber} rounded-xl px-4 py-3 text-sm font-semibold shadow-lg max-w-xs`;
-    el.textContent = message;
-    $('toastHost').appendChild(el);
-    setTimeout(() => {
-      el.style.transition = 'opacity 0.3s ease';
-      el.style.opacity = '0';
-      setTimeout(() => el.remove(), 300);
-    }, 3200);
-  }
-
-  const STATUS_META = {
-    pending:            { label: 'Pending confirmation', stageIndex: 0 },
-    accepted:           { label: 'Accepted by store', stageIndex: 1 },
-    looking_for_driver: { label: 'Looking for a driver', stageIndex: 2 },
-    delivering:         { label: 'Out for delivery', stageIndex: 3 },
-    completed:          { label: 'Delivered', stageIndex: 4 },
-  };
-  const STAGE_LABELS = ['Placed', 'Accepted', 'Driver', 'On the way', 'Delivered'];
-
-  /* ---------------------------------------------------------------- */
-  /* Role Switcher                                                      */
-  /* ---------------------------------------------------------------- */
-  const ROLE_COLORS = { customer: '#4FA6F2', store: '#B98CF2', driver: '#3ECF8E' };
-  function setRole(role) {
-    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-    $(`view-${role}`).classList.add('active');
-    document.querySelectorAll('.role-btn').forEach(btn => {
-      const active = btn.dataset.role === role;
-      btn.dataset.active = active ? 'true' : 'false';
-      btn.style.backgroundColor = active ? ROLE_COLORS[role] : 'transparent';
-      btn.style.color = active ? '#0A0E14' : '#8493A6';
-    });
-  }
-  document.querySelectorAll('.role-btn').forEach(btn => {
-    btn.addEventListener('click', () => setRole(btn.dataset.role));
-  });
-  setRole('customer');
-
-  /* Connection indicator */
-  if (database) {
-    onValue(ref(database, '.info/connected'), (snap) => {
-      const connected = snap.val() === true;
-      $('connDot').className = `w-2 h-2 rounded-full ${connected ? 'bg-role-driver' : 'bg-base-600'}`;
-      $('connLabel').textContent = connected ? 'Live' : 'Connecting…';
-    });
-  } else {
-    $('connLabel').textContent = 'Offline (config error)';
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Local session state                                                */
-  /* ---------------------------------------------------------------- */
-  const session = {
-    storeId: localStorage.getItem('sougi_storeId') || null,
-    driverId: localStorage.getItem('sougi_driverId') || null,
-    activeCustomerOrderId: localStorage.getItem('sougi_customerOrderId') || null,
-    selectedStoreId: null,
-    cart: {}, // productId -> {name, price, qty, storeId, storeName}
-  };
-
-  let allStores = {};
-  let allOrders = {};
-  let allDrivers = {};
-
-  /* ---------------------------------------------------------------- */
-  /* CUSTOMER VIEW LOGIC                                                */
-  /* ---------------------------------------------------------------- */
-  function renderStoreGrid() {
-    const grid = $('storeGrid');
-    const ids = Object.keys(allStores);
-    $('storeCount').textContent = `${ids.length} store${ids.length === 1 ? '' : 's'}`;
-    if (ids.length === 0) {
-      grid.innerHTML = `<p class="text-sm text-base-500 col-span-2">No stores registered yet. Switch to Store Panel to add one.</p>`;
-      return;
-    }
-    grid.innerHTML = ids.map(id => {
-      const s = allStores[id];
-      const productCount = s.products ? Object.keys(s.products).length : 0;
-      return `
-        <button data-store-id="${id}" class="store-card card-hover text-left bg-base-850 border border-base-700 hover:border-role-customer/60 rounded-xl p-4">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-role-customer/15 grid place-items-center text-role-customer font-black">${escapeHtml((s.name || '?')[0].toUpperCase())}</div>
-            <div class="min-w-0">
-              <p class="font-bold text-white truncate">${escapeHtml(s.name || 'Unnamed store')}</p>
-              <p class="text-xs text-base-500">${productCount} product${productCount === 1 ? '' : 's'}</p>
-            </div>
-          </div>
-        </button>`;
-    }).join('');
-
-    grid.querySelectorAll('.store-card').forEach(card => {
-      card.addEventListener('click', () => openStoreProducts(card.dataset.storeId));
-    });
-  }
-
-  function openStoreProducts(storeId) {
-    session.selectedStoreId = storeId;
-    const s = allStores[storeId];
-    if (!s) return;
-    $('productPanel').classList.remove('hidden');
-    $('activeStoreName').textContent = s.name || 'Unnamed store';
-    const products = s.products || {};
-    const pids = Object.keys(products);
-    const grid = $('productGrid');
-    if (pids.length === 0) {
-      grid.innerHTML = `<p class="text-sm text-base-500 col-span-2">This store hasn't listed any products yet.</p>`;
-      return;
-    }
-    grid.innerHTML = pids.map(pid => {
-      const p = products[pid];
-      return `
-        <div class="bg-base-850 border border-base-700 rounded-xl p-4 flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="font-bold text-white truncate">${escapeHtml(p.name)}</p>
-            <p class="text-sm text-amber-400 font-bold">${fmtMoney(p.price)}</p>
-          </div>
-          <button data-pid="${pid}" class="add-to-cart shrink-0 bg-role-customer/15 hover:bg-role-customer/30 text-role-customer font-bold text-sm px-3 py-1.5 rounded-lg">Add</button>
-        </div>`;
-    }).join('');
-
-    grid.querySelectorAll('.add-to-cart').forEach(btn => {
-      btn.addEventListener('click', () => addToCart(storeId, s.name, btn.dataset.pid, products[btn.dataset.pid]));
-    });
-  }
-
-  $('closeProductPanel').addEventListener('click', () => {
-    $('productPanel').classList.add('hidden');
-    session.selectedStoreId = null;
-  });
-
-  function addToCart(storeId, storeName, pid, product) {
-    const existingStoreIds = new Set(Object.values(session.cart).map(i => i.storeId));
-    if (existingStoreIds.size > 0 && !existingStoreIds.has(storeId)) {
-      toast('Your cart already has items from another store. Finish or clear that order first.', 'customer');
-      return;
-    }
-    const key = `${storeId}__${pid}`;
-    if (session.cart[key]) {
-      session.cart[key].qty += 1;
-    } else {
-      session.cart[key] = { name: product.name, price: Number(product.price), qty: 1, storeId, storeName, pid };
-    }
-    renderCart();
-    toast(`Added ${product.name} to cart`, 'customer');
-  }
-
-  function renderCart() {
-    const items = Object.entries(session.cart);
-    $('cartCount').textContent = `${items.reduce((a, [,i]) => a + i.qty, 0)} items`;
-    const container = $('cartItems');
-    if (items.length === 0) {
-      container.innerHTML = `<p class="text-sm text-base-500">Cart is empty. Add products to get started.</p>`;
-      $('cartTotal').textContent = fmtMoney(0);
-      $('placeOrderBtn').disabled = true;
-      return;
-    }
-    container.innerHTML = items.map(([key, item]) => `
-      <div class="flex items-center justify-between gap-2 bg-base-850 rounded-lg px-3 py-2">
-        <div class="min-w-0">
-          <p class="text-sm font-semibold text-white truncate">${escapeHtml(item.name)}</p>
-          <p class="text-xs text-base-500">${fmtMoney(item.price)} × ${item.qty}</p>
-        </div>
-        <div class="flex items-center gap-1 shrink-0">
-          <button data-key="${key}" data-delta="-1" class="cart-qty w-6 h-6 rounded bg-base-700 text-white text-xs font-bold">−</button>
-          <span class="text-xs text-base-300 w-4 text-center">${item.qty}</span>
-          <button data-key="${key}" data-delta="1" class="cart-qty w-6 h-6 rounded bg-base-700 text-white text-xs font-bold">+</button>
-        </div>
-      </div>`).join('');
-
-    container.querySelectorAll('.cart-qty').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const key = btn.dataset.key;
-        const delta = Number(btn.dataset.delta);
-        session.cart[key].qty += delta;
-        if (session.cart[key].qty <= 0) delete session.cart[key];
-        renderCart();
-      });
-    });
-
-    const total = items.reduce((sum, [, i]) => sum + i.price * i.qty, 0);
-    $('cartTotal').textContent = fmtMoney(total);
-    $('placeOrderBtn').disabled = false;
-  }
-
-  $('checkoutForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!requireDb()) return;
-    const items = Object.values(session.cart);
-    if (items.length === 0) { toast('Your cart is empty.', 'customer'); return; }
-    const name = $('customerName').value.trim();
-    if (!name) return;
-    const storeId = items[0].storeId;
-    const total = items.reduce((sum, i) => sum + i.price * i.qty, 0);
-
-    const btn = $('placeOrderBtn');
-    btn.disabled = true;
-    btn.textContent = 'Placing order…';
-
-    try {
-      const newOrderRef = push(ref(database, 'orders'));
-      const orderPayload = {
-        customerName: name,
-        items: items.map(i => ({ name: i.name, price: i.price, qty: i.qty })),
-        total,
-        status: 'pending',
-        storeId,
-        driverId: null,
-        createdAt: Date.now(),
-      };
-      await set(newOrderRef, orderPayload);
-
-      session.activeCustomerOrderId = newOrderRef.key;
-      localStorage.setItem('sougi_customerOrderId', newOrderRef.key);
-      session.cart = {};
-      renderCart();
-      $('customerName').value = '';
-      toast('Order placed! Tracking it below.', 'customer');
-      watchCustomerOrder();
-    } catch (err) {
-      toast('Could not place order. Try again.', 'customer');
-      console.error(err);
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Place order';
-    }
-  });
-
-  function renderTrackStages(currentStageIndex) {
-    const wrap = $('trackStages');
-    wrap.innerHTML = STAGE_LABELS.map((label, idx) => {
-      const done = idx <= currentStageIndex;
-      return `
-        <div class="track-node flex-1 flex flex-col items-center gap-1.5">
-          <div class="w-3 h-3 rounded-full ${done ? 'bg-role-customer' : 'bg-base-700'}"></div>
-          <span class="text-[10px] text-center ${done ? 'text-base-300 font-semibold' : 'text-base-600'}">${label}</span>
-        </div>`;
-    }).join('<div class="h-px flex-1 bg-base-700 -mt-4"></div>');
-  }
-
-  function watchCustomerOrder() {
-    if (!session.activeCustomerOrderId || !database) return;
-    onValue(ref(database, `orders/${session.activeCustomerOrderId}`), (snap) => {
-      const order = snap.val();
-      if (!order) {
-        $('trackingEmpty').classList.remove('hidden');
-        $('trackingActive').classList.add('hidden');
-        return;
-      }
-      $('trackingEmpty').classList.add('hidden');
-      $('trackingActive').classList.remove('hidden');
-      $('trackName').textContent = order.customerName;
-      $('trackTotal').textContent = fmtMoney(order.total);
-      const meta = STATUS_META[order.status] || STATUS_META.pending;
-      renderTrackStages(meta.stageIndex);
-      $('trackStatusLabel').textContent = meta.label;
-    });
-  }
-  watchCustomerOrder();
-
-  /* ---------------------------------------------------------------- */
-  /* STORE PANEL LOGIC                                                  */
-  /* ---------------------------------------------------------------- */
-  function applyStoreSession() {
-    if (!session.storeId) return;
-    $('storeIdentityBadge').classList.remove('hidden');
-    const s = allStores[session.storeId];
-    $('currentStoreLabel').textContent = s ? s.name : '…';
-    $('storeNameInput').value = s ? s.name : '';
-    renderStoreProductList();
-    renderStoreOrders();
-  }
-
-  $('storeForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!requireDb()) return;
-    const name = $('storeNameInput').value.trim();
-    if (!name) return;
-    try {
-      if (!session.storeId) {
-        const newStoreRef = push(ref(database, 'stores'));
-        session.storeId = newStoreRef.key;
-        localStorage.setItem('sougi_storeId', session.storeId);
-        await set(newStoreRef, { name, products: {} });
-      } else {
-        await update(ref(database, `stores/${session.storeId}`), { name });
-      }
-      toast('Store saved.', 'store');
-      applyStoreSession();
-    } catch (err) {
-      toast('Could not save store.', 'store');
-      console.error(err);
-    }
-  });
-
-  $('productForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!requireDb()) return;
-    if (!session.storeId) { toast('Register your store first.', 'store'); return; }
-    const name = $('productNameInput').value.trim();
-    const price = Number($('productPriceInput').value);
-    if (!name || !price) return;
-    try {
-      const newProductRef = push(ref(database, `stores/${session.storeId}/products`));
-      await set(newProductRef, { name, price });
-      $('productNameInput').value = '';
-      $('productPriceInput').value = '';
-      toast('Product added.', 'store');
-    } catch (err) {
-      toast('Could not add product.', 'store');
-      console.error(err);
-    }
-  });
-
-  function renderStoreProductList() {
-    const container = $('storeProductList');
-    if (!session.storeId) { container.innerHTML = ''; return; }
-    const s = allStores[session.storeId];
-    const products = (s && s.products) || {};
-    const pids = Object.keys(products);
-    if (pids.length === 0) {
-      container.innerHTML = `<p class="text-sm text-base-500">No products listed yet.</p>`;
-      return;
-    }
-    container.innerHTML = pids.map(pid => `
-      <div class="flex items-center justify-between bg-base-850 rounded-lg px-3 py-2">
-        <span class="text-sm text-white font-medium truncate">${escapeHtml(products[pid].name)}</span>
-        <span class="text-sm text-amber-400 font-bold">${fmtMoney(products[pid].price)}</span>
-      </div>`).join('');
-  }
-
-  function renderStoreOrders() {
-    const container = $('storeOrders');
-    if (!session.storeId) {
-      container.innerHTML = `<p class="text-sm text-base-500">Register your store to start receiving orders.</p>`;
-      $('storeOrderCount').textContent = '0 orders';
-      return;
-    }
-    const orders = Object.entries(allOrders).filter(([, o]) => o.storeId === session.storeId);
-    $('storeOrderCount').textContent = `${orders.length} order${orders.length === 1 ? '' : 's'}`;
-    if (orders.length === 0) {
-      container.innerHTML = `<p class="text-sm text-base-500">No orders yet. They'll appear here in real time.</p>`;
-      return;
-    }
-    container.innerHTML = orders
-      .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0))
-      .map(([id, o]) => {
-        const meta = STATUS_META[o.status] || STATUS_META.pending;
-        const itemsLine = (o.items || []).map(i => `${i.qty}× ${escapeHtml(i.name)}`).join(', ');
-        let actions = '';
-        if (o.status === 'pending') {
-          actions = `<button data-oid="${id}" data-action="accept" class="order-action bg-role-store/20 hover:bg-role-store/35 text-role-store text-xs font-bold px-3 py-2 rounded-lg">Accept order</button>`;
-        } else if (o.status === 'accepted') {
-          actions = `<button data-oid="${id}" data-action="find_driver" class="order-action bg-amber-500/20 hover:bg-amber-500/35 text-amber-400 text-xs font-bold px-3 py-2 rounded-lg">Find available driver</button>`;
-        } else {
-          actions = `<span class="text-xs font-bold text-base-500">${meta.label}</span>`;
+            if(activeId === 'view-customer') activeBtn.classList.add('bg-blue-600', 'text-white', 'shadow');
+            if(activeId === 'view-store') activeBtn.classList.add('bg-green-600', 'text-white', 'shadow');
+            if(activeId === 'view-driver') activeBtn.classList.add('bg-yellow-600', 'text-white', 'shadow');
         }
-        return `
-          <div class="bg-base-850 border border-base-700 rounded-xl p-4">
-            <div class="flex items-start justify-between gap-3 mb-2">
-              <div class="min-w-0">
-                <p class="font-bold text-white truncate">${escapeHtml(o.customerName)}</p>
-                <p class="text-xs text-base-500 truncate">${itemsLine}</p>
-              </div>
-              <span class="text-sm font-black text-amber-400 shrink-0">${fmtMoney(o.total)}</span>
-            </div>
-            <div class="flex items-center justify-between gap-2 mt-3">
-              <span class="text-[10px] uppercase tracking-wide font-bold text-base-500">${meta.label}</span>
-              ${actions}
-            </div>
-          </div>`;
-      }).join('');
 
-    container.querySelectorAll('.order-action').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!requireDb()) return;
-        const oid = btn.dataset.oid;
-        const action = btn.dataset.action;
-        try {
-          if (action === 'accept') {
-            await update(ref(database, `orders/${oid}`), { status: 'accepted' });
-            toast('Order accepted.', 'store');
-          } else if (action === 'find_driver') {
-            await update(ref(database, `orders/${oid}`), { status: 'looking_for_driver' });
-            toast('Broadcasting to available drivers.', 'store');
-          }
-        } catch (err) {
-          toast('Action failed.', 'store');
-          console.error(err);
+        btnCustomer.addEventListener('click', () => switchPanel('view-customer', btnCustomer));
+        btnStore.addEventListener('click', () => switchPanel('view-store', btnStore));
+        btnDriver.addEventListener('click', () => {
+            switchPanel('view-driver', btnDriver);
+            syncDriverStatus();
+        });
+
+        // =========================================================
+        // CUSTOMER ENGINE LOGIC
+        // =========================================================
+        
+        // Listen for Realtime Stores updates
+        onValue(ref(db, 'stores'), (snapshot) => {
+            const container = document.getElementById('customer-stores-container');
+            const data = snapshot.val();
+            if(!data) {
+                container.innerHTML = `<p class="text-gray-500 text-sm italic col-span-2">No registered stores found.</p>`;
+                return;
+            }
+            container.innerHTML = '';
+            Object.keys(data).forEach(key => {
+                const store = data[key];
+                const card = document.createElement('div');
+                card.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 hover:border-blue-500 transition cursor-pointer flex justify-between items-center shadow";
+                card.innerHTML = `
+                    <div>
+                        <h4 class="font-bold text-white">${store.name || 'Unnamed Store'}</h4>
+                        <p class="text-xs text-gray-400 mt-1">${Object.keys(store.products || {}).length} Products Available</p>
+                    </div>
+                    <span class="text-blue-400 text-sm font-semibold">Browse →</span>
+                `;
+                card.addEventListener('click', () => selectStoreForCustomer(key, store));
+                container.appendChild(card);
+            });
+        });
+
+        function selectStoreForCustomer(id, store) {
+            currentStoreSelection = { id, ...store };
+            document.getElementById('selected-store-title').innerText = `Catalog: ${store.name}`;
+            document.getElementById('customer-products-panel').classList.remove('hidden');
+            
+            const container = document.getElementById('customer-products-container');
+            container.innerHTML = '';
+            
+            if(!store.products) {
+                container.innerHTML = `<p class="text-gray-500 text-sm italic">No items found inside this store's inventory layout.</p>`;
+                return;
+            }
+
+            Object.keys(store.products).forEach(pKey => {
+                const prod = store.products[pKey];
+                const card = document.createElement('div');
+                card.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 flex justify-between items-center";
+                card.innerHTML = `
+                    <div>
+                        <h5 class="font-semibold text-gray-200">${prod.name}</h5>
+                        <p class="text-sm text-emerald-400 font-bold mt-0.5">${parseFloat(prod.price).toFixed(2)} DZD</p>
+                    </div>
+                    <button class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-3 py-1.5 rounded-lg transition">
+                        + Add
+                    </button>
+                `;
+                card.querySelector('button').addEventListener('click', () => addToCart(pKey, prod));
+                container.appendChild(card);
+            });
         }
-      });
-    });
-  }
 
-  /* ---------------------------------------------------------------- */
-  /* DRIVER PORTAL LOGIC                                                */
-  /* ---------------------------------------------------------------- */
-  function applyDriverSession() {
-    if (!session.driverId) return;
-    $('driverStatusBox').classList.remove('hidden');
-    const d = allDrivers[session.driverId];
-    $('driverNameInput').value = d ? d.name : '';
-    renderDriverStatus();
-    renderActiveJob();
-  }
+        document.getElementById('close-products-btn').addEventListener('click', () => {
+            document.getElementById('customer-products-panel').classList.add('hidden');
+            currentStoreSelection = null;
+        });
 
-  $('driverForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    if (!requireDb()) return;
-    const name = $('driverNameInput').value.trim();
-    if (!name) return;
-    try {
-      if (!session.driverId) {
-        const newDriverRef = push(ref(database, 'drivers'));
-        session.driverId = newDriverRef.key;
-        localStorage.setItem('sougi_driverId', session.driverId);
-        await set(newDriverRef, { name, status: 'offline', activeOrderId: null });
-      } else {
-        await update(ref(database, `drivers/${session.driverId}`), { name });
-      }
-      toast('Driver profile saved.', 'driver');
-      applyDriverSession();
-    } catch (err) {
-      toast('Could not save profile.', 'driver');
-      console.error(err);
-    }
-  });
-
-  function renderDriverStatus() {
-    if (!session.driverId) return;
-    const d = allDrivers[session.driverId];
-    const status = d ? d.status : 'offline';
-    const isAvailable = status === 'available';
-    $('driverStatusLabel').textContent = isAvailable ? 'Available' : (status === 'busy' ? 'On a delivery' : 'Offline');
-    $('driverToggle').style.backgroundColor = isAvailable ? '#3ECF8E' : '#22303F';
-    $('driverThumb').style.transform = isAvailable ? 'translateX(24px)' : 'translateX(0)';
-    $('driverToggle').disabled = status === 'busy';
-    $('driverToggle').classList.toggle('opacity-50', status === 'busy');
-  }
-
-  $('driverToggle').addEventListener('click', async () => {
-    if (!requireDb()) return;
-    if (!session.driverId) { toast('Save your driver profile first.', 'driver'); return; }
-    const d = allDrivers[session.driverId];
-    if (d && d.status === 'busy') return;
-    const next = d && d.status === 'available' ? 'offline' : 'available';
-    try {
-      await update(ref(database, `drivers/${session.driverId}`), { status: next });
-      toast(next === 'available' ? "You're online." : "You're offline.", 'driver');
-    } catch (err) {
-      console.error(err);
-    }
-  });
-
-  function renderJobRadar() {
-    const container = $('jobRadar');
-    const jobs = Object.entries(allOrders).filter(([, o]) => o.status === 'looking_for_driver');
-    $('jobCount').textContent = `${jobs.length} job${jobs.length === 1 ? '' : 's'}`;
-    if (jobs.length === 0) {
-      container.innerHTML = `<p class="text-sm text-base-500">No jobs looking for a driver right now.</p>`;
-      return;
-    }
-    const driver = session.driverId ? allDrivers[session.driverId] : null;
-    const canAccept = driver && driver.status === 'available';
-    container.innerHTML = jobs.map(([id, o]) => {
-      const storeName = (allStores[o.storeId] && allStores[o.storeId].name) || 'Unknown store';
-      return `
-        <div class="bg-base-850 border border-base-700 rounded-xl p-4 flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="font-bold text-white truncate">${escapeHtml(storeName)} → ${escapeHtml(o.customerName)}</p>
-            <p class="text-xs text-base-500">${(o.items || []).length} item(s) · ${fmtMoney(o.total)}</p>
-          </div>
-          <button data-oid="${id}" class="accept-job shrink-0 bg-role-driver/20 hover:bg-role-driver/35 text-role-driver text-xs font-bold px-3 py-2 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed" ${canAccept ? '' : 'disabled'}>Accept delivery job</button>
-        </div>`;
-    }).join('');
-
-    container.querySelectorAll('.accept-job').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!requireDb()) return;
-        if (!session.driverId) { toast('Save your driver profile first.', 'driver'); return; }
-        const oid = btn.dataset.oid;
-        try {
-          await update(ref(database, `orders/${oid}`), { status: 'delivering', driverId: session.driverId });
-          await update(ref(database, `drivers/${session.driverId}`), { status: 'busy', activeOrderId: oid });
-          toast('Job accepted. Head to the store!', 'driver');
-        } catch (err) {
-          toast('Could not accept job.', 'driver');
-          console.error(err);
+        function addToCart(pKey, prod) {
+            if(!currentStoreSelection) return;
+            localCart.push({
+                productId: pKey,
+                name: prod.name,
+                price: parseFloat(prod.price),
+                storeId: currentStoreSelection.id,
+                storeName: currentStoreSelection.name
+            });
+            renderCart();
         }
-      });
-    });
-  }
 
-  function renderActiveJob() {
-    if (!session.driverId) { $('activeJobCard').classList.add('hidden'); return; }
-    const d = allDrivers[session.driverId];
-    const activeOrderId = d && d.activeOrderId;
-    const order = activeOrderId ? allOrders[activeOrderId] : null;
-    if (!order) { $('activeJobCard').classList.add('hidden'); return; }
-    $('activeJobCard').classList.remove('hidden');
-    $('activeJobCustomer').textContent = order.customerName;
-    $('activeJobTotal').textContent = fmtMoney(order.total);
-    $('markDeliveredBtn').onclick = async () => {
-      if (!requireDb()) return;
-      try {
-        await update(ref(database, `orders/${activeOrderId}`), { status: 'completed' });
-        await update(ref(database, `drivers/${session.driverId}`), { status: 'available', activeOrderId: null });
-        toast('Delivery marked complete. Nice work!', 'driver');
-      } catch (err) {
-        toast('Could not update delivery.', 'driver');
-        console.error(err);
-      }
-    };
-  }
+        function renderCart() {
+            const container = document.getElementById('cart-items');
+            const totalEl = document.getElementById('cart-total');
+            if(localCart.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 text-sm italic py-2">Your cart is empty.</p>`;
+                totalEl.innerText = '0.00 DZD';
+                return;
+            }
+            container.innerHTML = '';
+            let total = 0;
+            localCart.forEach((item, index) => {
+                total += item.price;
+                const row = document.createElement('div');
+                row.className = "flex justify-between items-center py-2 text-sm text-gray-300";
+                row.innerHTML = `
+                    <div>
+                        <p class="font-medium text-white">${item.name}</p>
+                        <p class="text-xs text-gray-500">${item.storeName}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-emerald-400">${item.price.toFixed(2)}</span>
+                        <button class="text-red-500 hover:text-red-400 font-bold text-xs px-1">✕</button>
+                    </div>
+                `;
+                row.querySelector('button').addEventListener('click', () => {
+                    localCart.splice(index, 1);
+                    renderCart();
+                });
+                container.appendChild(row);
+            });
+            totalEl.innerText = `${total.toFixed(2)} DZD`;
+        }
 
-  /* ---------------------------------------------------------------- */
-  /* GLOBAL REAL-TIME LISTENERS                                        */
-  /* ---------------------------------------------------------------- */
-  if (database) {
-    onValue(ref(database, 'stores'), (snap) => {
-      allStores = snap.val() || {};
-      renderStoreGrid();
-      if (session.selectedStoreId && allStores[session.selectedStoreId]) {
-        openStoreProducts(session.selectedStoreId);
-      }
-      if (session.storeId) applyStoreSession();
-      renderJobRadar();
-    });
+        document.getElementById('checkout-btn').addEventListener('click', () => {
+            const name = document.getElementById('cust-name-input').value.trim();
+            if(!name || localCart.length === 0) {
+                alert('Please check that your name is entered and items are loaded into the cart.');
+                return;
+            }
 
-    onValue(ref(database, 'orders'), (snap) => {
-      allOrders = snap.val() || {};
-      if (session.storeId) renderStoreOrders();
-      renderJobRadar();
-      renderActiveJob();
-    });
+            const targetStoreId = localCart[0].storeId;
+            const targetStoreName = localCart[0].storeName;
+            
+            // Check cross-store restriction
+            const multiStoreCheck = localCart.some(item => item.storeId !== targetStoreId);
+            if(multiStoreCheck) {
+                alert('Multi-store checkout is locked. Please check out items from a single vendor profile.');
+                return;
+            }
 
-    onValue(ref(database, 'drivers'), (snap) => {
-      allDrivers = snap.val() || {};
-      if (session.driverId) {
-        renderDriverStatus();
-        renderActiveJob();
-      }
-      renderJobRadar();
-    });
-  } else {
-    renderStoreGrid();
-    renderJobRadar();
-  }
+            let totalAmt = localCart.reduce((sum, i) => sum + i.price, 0);
 
-  /* Initial state hydration */
-  renderCart();
-  if (session.storeId) applyStoreSession();
-  if (session.driverId) applyDriverSession();
-</script>
+            const newOrderRef = push(ref(db, 'orders'));
+            const newOrderId = newOrderRef.key;
+
+            const orderPayload = {
+                customerName: name,
+                storeId: targetStoreId,
+                storeName: targetStoreName,
+                total: totalAmt,
+                status: 'pending',
+                items: localCart,
+                driverId: ''
+            };
+
+            set(newOrderRef, orderPayload).then(() => {
+                localCart = [];
+                renderCart();
+                trackCustomerOrder(newOrderId);
+            });
+        });
+
+        function trackCustomerOrder(orderId) {
+            onValue(ref(db, `orders/${orderId}`), (snapshot) => {
+                const container = document.getElementById('customer-tracking-container');
+                const order = snapshot.val();
+                if(!order) return;
+
+                let statusColor = "text-yellow-400 bg-yellow-950 border-yellow-800";
+                if(order.status === 'accepted') statusColor = "text-blue-400 bg-blue-950 border-blue-800";
+                if(order.status === 'looking_for_driver') statusColor = "text-purple-400 bg-purple-950 border-purple-800";
+                if(order.status === 'delivering') statusColor = "text-orange-400 bg-orange-950 border-orange-800";
+                if(order.status === 'completed') statusColor = "text-green-400 bg-green-950 border-green-800";
+
+                container.innerHTML = `
+                    <div class="p-4 rounded-xl border bg-gray-950 ${statusColor} border shadow flex flex-col gap-2">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <span>ID: ${orderId.substring(0,8)}...</span>
+                            <span class="uppercase font-bold tracking-wider">${order.status.replace(/_/g, ' ')}</span>
+                        </div>
+                        <p class="text-sm font-bold text-white mt-1">Merchant: ${order.storeName}</p>
+                        <p class="text-xs">Total Bill: <span class="font-bold">${parseFloat(order.total).toFixed(2)} DZD</span></p>
+                        ${order.driverId ? `<p class="text-xs font-medium">Assigned Courier: <span class="text-white underline">${order.driverId}</span></p>` : ''}
+                    </div>
+                `;
+            });
+        }
+
+
+        // =========================================================
+        // STORE ENGINE LOGIC
+        // =========================================================
+        document.getElementById('save-store-btn').addEventListener('click', () => {
+            const sId = document.getElementById('store-id-input').value.trim();
+            const sName = document.getElementById('store-name-input').value.trim();
+            if(!sId || !sName) {
+                alert('Fill both identification fields to bind parameters.');
+                return;
+            }
+
+            // Provision store configuration metadata nodes
+            update(ref(db, `stores/${sId}`), { name: sName }).then(() => {
+                alert('Store registered and sync complete.');
+                bindStoreLiveOrders(sId);
+            });
+        });
+
+        document.getElementById('add-product-btn').addEventListener('click', () => {
+            const sId = document.getElementById('store-id-input').value.trim();
+            const pName = document.getElementById('prod-name-input').value.trim();
+            const pPrice = document.getElementById('prod-price-input').value.trim();
+            
+            if(!sId || !pName || !pPrice) {
+                alert('Specify store profile target, item identifier, and valuation amount.');
+                return;
+            }
+
+            const newProdRef = push(ref(db, `stores/${sId}/products`));
+            set(newProdRef, { name: pName, price: parseFloat(pPrice) }).then(() => {
+                document.getElementById('prod-name-input').value = '';
+                document.getElementById('prod-price-input').value = '';
+                alert('Product saved successfully.');
+            });
+        });
+
+        function bindStoreLiveOrders(storeId) {
+            onValue(ref(db, 'orders'), (snapshot) => {
+                const container = document.getElementById('store-orders-container');
+                container.innerHTML = '';
+                const data = snapshot.val();
+                
+                let matches = 0;
+                if(data) {
+                    Object.keys(data).forEach(key => {
+                        const order = data[key];
+                        if(order.storeId !== storeId) return;
+                        matches++;
+
+                        const itemNames = (order.items || []).map(i => i.name).join(', ');
+
+                        const card = document.createElement('div');
+                        card.className = "bg-gray-950 p-4 rounded-xl border border-gray-800 space-y-3 shadow-md";
+                        card.innerHTML = `
+                            <div class="flex justify-between items-center border-b border-gray-900 pb-2">
+                                <span class="text-xs text-gray-400 font-mono">Order ID: ${key.substring(0,8)}...</span>
+                                <span class="text-xs px-2.5 py-0.5 rounded font-bold uppercase bg-gray-800 text-gray-300 border border-gray-700">${order.status.replace(/_/g, ' ')}</span>
+                            </div>
+                            <div class="text-sm">
+                                <p class="text-gray-400">Recipient Name: <span class="text-white font-medium">${order.customerName}</span></p>
+                                <p class="text-gray-400 mt-0.5">Manifest Items: <span class="text-gray-300 italic">${itemNames}</span></p>
+                                <p class="text-emerald-400 font-bold mt-1">Revenue: ${parseFloat(order.total).toFixed(2)} DZD</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2 pt-1">
+                                <button class="accept-btn bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition">Accept Order</button>
+                                <button class="dispatch-btn bg-purple-600 hover:bg-purple-500 text-white text-xs px-3 py-1.5 rounded-lg font-medium transition">Find Available Driver</button>
+                            </div>
+                        `;
+
+                        // Handle state changes
+                        card.querySelector('.accept-btn').addEventListener('click', () => {
+                            update(ref(db, `orders/${key}`), { status: 'accepted' });
+                        });
+                        card.querySelector('.dispatch-btn').addEventListener('click', () => {
+                            update(ref(db, `orders/${key}`), { status: 'looking_for_driver' });
+                        });
+
+                        container.appendChild(card);
+                    });
+                }
+
+                if(matches === 0) {
+                    container.innerHTML = `<p class="text-gray-500 text-sm italic">No active incoming orders registered for this merchant slug line.</p>`;
+                }
+            });
+        }
+
+
+        // =========================================================
+        // DRIVER PORTAL LOGIC
+        // =========================================================
+        const statusToggleBtn = document.getElementById('driver-status-toggle');
+        
+        statusToggleBtn.addEventListener('click', () => {
+            isDriverOnline = !isDriverOnline;
+            syncDriverStatus();
+        });
+
+        function syncDriverStatus() {
+            const dId = document.getElementById('driver-name-input').value.trim();
+            if(!dId) return;
+
+            if(isDriverOnline) {
+                statusToggleBtn.innerText = "ONLINE";
+                statusToggleBtn.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition bg-green-900 text-green-200 border border-green-700";
+                set(ref(db, `drivers/${dId}`), { name: dId, status: 'available' });
+                listenForDriverJobs();
+            } else {
+                statusToggleBtn.innerText = "OFFLINE";
+                statusToggleBtn.className = "px-4 py-1.5 rounded-lg text-xs font-bold transition bg-red-900 text-red-200 border border-red-700";
+                set(ref(db, `drivers/${dId}`), { name: dId, status: 'offline' });
+                document.getElementById('driver-jobs-container').innerHTML = `<p class="text-gray-500 text-sm italic">Set your profile status to ONLINE to receive incoming open requests.</p>`;
+            }
+        }
+
+        function listenForDriverJobs() {
+            const dId = document.getElementById('driver-name-input').value.trim();
+            
+            onValue(ref(db, 'orders'), (snapshot) => {
+                if(!isDriverOnline) return;
+                
+                const container = document.getElementById('driver-jobs-container');
+                container.innerHTML = '';
+                const data = snapshot.val();
+                
+                let jobCount = 0;
+                if(data) {
+                    Object.keys(data).forEach(key => {
+                        const order = data[key];
+                        
+                        // Show jobs that are looking for a driver OR jobs assigned to this specific driver
+                        const isJobOpen = order.status === 'looking_for_driver';
+                        const isMyJob = order.driverId === dId && order.status === 'delivering';
+
+                        if (!isJobOpen && !isMyJob) return;
+                        jobCount++;
+
+                        const card = document.createElement('div');
+                        card.className = `p-4 rounded-xl border ${isMyJob ? 'bg-orange-950/40 border-orange-800' : 'bg-gray-950 border-gray-800'} space-y-3 shadow-md`;
+                        
+                        card.innerHTML = `
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-bold text-gray-200">Merchant pickup: ${order.storeName}</span>
+                                <span class="text-xs px-2 py-0.5 rounded font-bold uppercase ${isMyJob ? 'bg-orange-600 text-white' : 'bg-purple-900 text-purple-200'}">${order.status.replace(/_/g, ' ')}</span>
+                            </div>
+                            <div class="text-xs text-gray-400 space-y-1">
+                                <p>Customer Dropoff: <span class="text-white font-medium">${order.customerName}</span></p>
+                                <p>Total Payout value: <span class="text-emerald-400 font-bold">${parseFloat(order.total).toFixed(2)} DZD</span></p>
+                            </div>
+                            <div class="pt-1 flex gap-2">
+                                ${isJobOpen ? 
+                                    `<button class="claim-btn w-full bg-yellow-600 hover:bg-yellow-500 text-gray-950 text-xs font-bold py-2 rounded-lg transition">Accept Delivery Job</button>` : 
+                                    `<button class="complete-btn w-full bg-green-600 hover:bg-green-500 text-white text-xs font-bold py-2 rounded-lg transition">Mark as Delivered</button>`
+                                }
+                            </div>
+                        `;
+
+                        if (isJobOpen) {
+                            card.querySelector('.claim-btn').addEventListener('click', () => {
+                                const updates = {
+                                    status: 'delivering',
+                                    driverId: dId
+                                };
+                                update(ref(db, `orders/${key}`), updates);
+                            });
+                        } else if (isMyJob) {
+                            card.querySelector('.complete-btn').addEventListener('click', () => {
+                                update(ref(db, `orders/${key}`), { status: 'completed' });
+                            });
+                        }
+
+                        container.appendChild(card);
+                    });
+                }
+
+                if(jobCount === 0) {
+                    container.innerHTML = `<p class="text-gray-500 text-sm italic">Radar system scanning. No active regional courier dispatch calls found at this minute.</p>`;
+                }
+            });
+        }
+    </script>
 </body>
 </html>
