@@ -731,6 +731,10 @@
       }
       if (currentRole === 'store') renderStoreHeader();
       if (currentRole === 'driver') renderJobRadar();
+      // Keep structural history blocks cleanly mapped out on live context shifts
+      if (currentRole === 'customer') renderGlobalHistory('customerHistoryList');
+      if (currentRole === 'store') renderGlobalHistory('storeHistoryList');
+      if (currentRole === 'driver') renderGlobalHistory('driverHistoryList');
     });
 
     onValue(ref(database, 'orders'), (snap) => {
@@ -745,6 +749,10 @@
       if (currentRole === 'driver') renderDriverStatus();
       if (currentRole === 'store') renderAvailableDrivers();
       if (currentRole === 'driver') renderActiveJob();
+      // Cascade visibility parameters down cleanly into past logs
+      if (currentRole === 'customer') renderGlobalHistory('customerHistoryList');
+      if (currentRole === 'store') renderGlobalHistory('storeHistoryList');
+      if (currentRole === 'driver') renderGlobalHistory('driverHistoryList');
     });
 
     onValue(ref(database, 'users'), (snap) => {
@@ -778,6 +786,40 @@
       .sort((a, b) => (b[1].completedAt || 0) - (a[1].completedAt || 0))
       .map(([id, o]) => {
         const itemsStr = (o.items || []).map(i => `${i.qty}× ${escapeHtml(i.name)}`).join(', ');
+        
+        // Find targeted driver metadata information blocks if set
+        const driverObj = o.driverId ? allDrivers[o.driverId] : null;
+        const driverName = driverObj ? driverObj.name : 'Unknown Agent';
+        const driverPhone = driverObj ? driverObj.phone : 'N/A';
+
+        // Find associated storefront layout variables safely
+        const storeObj = allStores[o.storeId];
+        const storePhone = storeObj ? storeObj.phone : 'N/A';
+
+        let entityDetailsHtml = '';
+        if (containerId === 'customerHistoryList') {
+          entityDetailsHtml = `
+          <div class="mt-2 pt-2 border-t border-base-800 text-[11px] text-base-400 grid grid-cols-2 gap-2">
+            <div><span class="text-base-500 block">Store Phone:</span><b>${escapeHtml(storePhone)}</b></div>
+            <div><span class="text-role-driver block">Delivery Driver:</span><b>${escapeHtml(driverName)}</b> (${escapeHtml(driverPhone)})</div>
+          </div>`;
+        } else if (containerId === 'storeHistoryList') {
+          entityDetailsHtml = `
+          <div class="mt-2 pt-2 border-t border-base-800 text-[11px] text-base-400 grid grid-cols-2 gap-2">
+            <div><span class="text-role-customer block">Customer Details:</span><b>${escapeHtml(o.customerName)}</b> (${escapeHtml(o.customerPhone || 'N/A')})</div>
+            <div><span class="text-role-driver block">Delivery Agent:</span><b>${escapeHtml(driverName)}</b> (${escapeHtml(driverPhone)})</div>
+          </div>`;
+        } else if (containerId === 'driverHistoryList') {
+          entityDetailsHtml = `
+          <div class="mt-2 pt-2 border-t border-base-800 text-[11px] text-base-400 space-y-1">
+            <div class="grid grid-cols-2 gap-2">
+              <div><span class="text-role-customer block">Customer Name & Phone:</span><b>${escapeHtml(o.customerName)}</b> (${escapeHtml(o.customerPhone || 'N/A')})</div>
+              <div><span class="text-role-store block">Store Details:</span><b>${escapeHtml(o.storeName)}</b> (${escapeHtml(storePhone)})</div>
+            </div>
+            <div><span class="text-base-500 block">Dropped off at:</span><span class="text-white">${escapeHtml(o.deliveryAddress || '')}</span></div>
+          </div>`;
+        }
+
         return `
         <div class="bg-base-850 border border-base-800 rounded-xl p-3 flex flex-col gap-1 font-sans">
           <div class="flex justify-between items-start">
@@ -789,6 +831,7 @@
             <span>Placed: ${fmtDate(o.createdAt)}</span>
             <span class="text-role-driver">Delivered: ${fmtDate(o.completedAt)}</span>
           </div>
+          ${entityDetailsHtml}
         </div>`;
       }).join('');
   }
@@ -878,7 +921,7 @@
     // Filter products array by active category tab selection
     let filteredPids = pids;
     if (selectedProductCategory !== "ALL") {
-      filteredPids = pids.filter(products[pid].category === selectedProductCategory);
+      filteredPids = pids.filter(pid => products[pid].category === selectedProductCategory);
     }
 
     const grid = $('productGrid');
@@ -903,7 +946,7 @@
           <div class="min-w-0 w-full">
             <div class="flex justify-between items-start gap-1">
               <p class="font-bold text-white truncate text-base">${escapeHtml(p.name)}</p>
-              <span class="text-[10px] uppercase font-bold tracking-wider ${isOutOfStock ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-base-400 bg-base-880 border-base-700'} border px-1.5 py-0.5 rounded-md shrink-0">Stock: ${stockNum}</span>
+              <span class="text-[10px] uppercase font-bold tracking-wider ${isOutOfStock ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-base-400 bg-base-850 border-base-700'} border px-1.5 py-0.5 rounded-md shrink-0">Stock: ${stockNum}</span>
             </div>
             ${p.category ? `<p class="text-[10px] text-role-store font-bold uppercase tracking-wider mt-0.5">${escapeHtml(p.category)}</p>` : ''}
             ${variantsBadgeHtml}
@@ -1260,7 +1303,13 @@
         const custProfile = allUsers[o.customerId] || {};
         const custAvg = avgRating(custProfile.ratingSum, custProfile.ratingCount);
         let actions = '';
-        if (o.status === 'pending') actions = `<button data-oid="${id}" data-action="accept" class="order-action bg-role-store/20 hover:bg-role-store/35 text-role-store text-xs font-bold px-3 py-2 rounded-lg">Accept order</button>`;
+        if (o.status === 'pending') {
+          actions = `
+          <div class="flex items-center gap-2">
+            <button data-oid="${id}" data-action="reject" class="order-action bg-red-500/20 hover:bg-red-500/35 text-red-400 text-xs font-bold px-3 py-2 rounded-lg">Reject order</button>
+            <button data-oid="${id}" data-action="accept" class="order-action bg-role-store/20 hover:bg-role-store/35 text-role-store text-xs font-bold px-3 py-2 rounded-lg">Accept order</button>
+          </div>`;
+        }
         else if (o.status === 'accepted') actions = `<button data-oid="${id}" data-action="find_driver" class="order-action bg-amber-500/20 hover:bg-amber-500/35 text-amber-400 text-xs font-bold px-3 py-2 rounded-lg">Find available driver</button>`;
         else actions = `<span class="text-xs font-bold text-base-500">${meta.label}</span>`;
 
@@ -1308,6 +1357,13 @@
         const action = btn.dataset.action;
         try {
           if (action === 'accept') { await update(ref(database, `orders/${oid}`), { status: 'accepted', acceptedAt: Date.now() }); toast('Order accepted.', 'store'); }
+          else if (action === 'reject') { 
+            const confirmation = confirm("Are you sure you want to reject this order? This will remove it entirely.");
+            if (confirmation) {
+              await remove(ref(database, `orders/${oid}`)); 
+              toast('Order rejected and cancelled.', 'amber'); 
+            }
+          }
           else if (action === 'find_driver') { await update(ref(database, `orders/${oid}`), { status: 'looking_for_driver' }); toast('Broadcasting to available drivers.', 'store'); }
         } catch (err) { toast('Action failed.', 'store'); console.error(err); }
       });
