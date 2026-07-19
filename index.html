@@ -273,6 +273,14 @@
           </div>
           <div id="productGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
         </div>
+
+        <!-- CUSTOMER ORDERS HISTORY SECTION -->
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <h2 class="font-bold text-white text-lg mb-4">Orders History</h2>
+          <div id="customerHistoryList" class="space-y-3 max-h-80 overflow-y-auto pr-1 text-sm text-base-500">
+            No fulfilled orders yet.
+          </div>
+        </div>
       </div>
 
       <div class="space-y-6">
@@ -304,25 +312,8 @@
 
         <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
           <h2 class="font-bold text-white text-lg mb-4">Order tracking</h2>
-          <div id="trackingEmpty" class="text-sm text-base-500">No active order yet. Place an order to track it live here.</div>
-          <div id="trackingActive" class="hidden space-y-5">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-xs text-base-500">Order from</p>
-                <p id="trackStoreName" class="font-bold text-white">—</p>
-              </div>
-              <p id="trackTotal" class="font-black text-amber-400">—</p>
-            </div>
-            <div class="flex items-center justify-between" id="trackStages"></div>
-            <p id="trackStatusLabel" class="text-center text-sm font-bold text-role-customer bg-role-customer/10 rounded-lg py-2"></p>
-            
-            <!-- Timestamp Timeline Layer Details -->
-            <div id="trackTimestamps" class="mt-3 space-y-1 bg-base-950/40 p-2.5 border border-base-800 rounded-xl text-[11px] text-base-400 font-mono"></div>
-
-            <div id="rateStoreBox" class="hidden text-center border-t border-base-800 pt-4">
-              <p class="text-xs text-base-500 mb-2">Rate this store</p>
-              <div id="rateStoreStars" class="flex items-center justify-center gap-1"></div>
-            </div>
+          <div id="trackingContainer" class="space-y-3">
+            <div id="trackingEmpty" class="text-sm text-base-500">No active orders yet. Place an order to track it live here.</div>
           </div>
         </div>
       </div>
@@ -372,7 +363,7 @@
         </div>
       </div>
 
-      <div class="lg:col-span-2">
+      <div class="lg:col-span-2 space-y-6">
         <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
           <div class="flex items-center justify-between mb-4">
             <h2 class="font-bold text-white text-lg">Incoming orders</h2>
@@ -380,6 +371,14 @@
           </div>
           <div id="storeOrders" class="space-y-3">
             <p class="text-sm text-base-500">No orders yet. They'll appear here in real time.</p>
+          </div>
+        </div>
+
+        <!-- STORE ORDERS HISTORY SECTION -->
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <h2 class="font-bold text-white text-lg mb-4">Orders History</h2>
+          <div id="storeHistoryList" class="space-y-3 max-h-80 overflow-y-auto pr-1 text-sm text-base-500">
+            No fulfilled orders yet.
           </div>
         </div>
       </div>
@@ -429,7 +428,7 @@
         </div>
       </div>
 
-      <div class="lg:col-span-2">
+      <div class="lg:col-span-2 space-y-6">
         <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
           <div class="flex items-center justify-between mb-4">
             <h2 class="font-bold text-white text-lg flex items-center gap-2">
@@ -440,6 +439,14 @@
           </div>
           <div id="jobRadar" class="space-y-3">
             <p class="text-sm text-base-500">No jobs looking for a driver right now.</p>
+          </div>
+        </div>
+
+        <!-- DRIVER ORDERS HISTORY SECTION -->
+        <div class="bg-base-900 border border-base-800 rounded-2xl p-5">
+          <h2 class="font-bold text-white text-lg mb-4">Orders History</h2>
+          <div id="driverHistoryList" class="space-y-3 max-h-80 overflow-y-auto pr-1 text-sm text-base-500">
+            No fulfilled orders yet.
           </div>
         </div>
       </div>
@@ -454,7 +461,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, push, onValue, update, get, off } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getDatabase, ref, set, push, onValue, update, get, off, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
@@ -709,7 +716,7 @@
   let selectedStoreId = null;
   let selectedProductCategory = "ALL"; // Category filter tracking for current storefront
   let cart = {};
-  let activeCustomerOrderId = localStorage.getItem('sougi_lastOrderId') || null;
+  let expandedOrders = {}; // Accordion toggle tracker for multiple ongoing tracking panels
   let listenersStarted = false;
 
   function startRoleListeners() {
@@ -728,9 +735,9 @@
 
     onValue(ref(database, 'orders'), (snap) => {
       allOrders = snap.val() || {};
-      if (currentRole === 'store') renderStoreOrders();
-      if (currentRole === 'driver') { renderJobRadar(); renderActiveJob(); }
-      if (currentRole === 'customer') watchTracking();
+      if (currentRole === 'store') { renderStoreOrders(); renderGlobalHistory('storeHistoryList'); }
+      if (currentRole === 'driver') { renderJobRadar(); renderActiveJob(); renderGlobalHistory('driverHistoryList'); }
+      if (currentRole === 'customer') { watchTracking(); renderGlobalHistory('customerHistoryList'); }
     });
 
     onValue(ref(database, 'drivers'), (snap) => {
@@ -744,6 +751,46 @@
       allUsers = snap.val() || {};
       if (currentRole === 'store') renderStoreOrders();
     });
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* GLOBAL HISTORY RENDER COMPONENT                                  */
+  /* ---------------------------------------------------------------- */
+  function renderGlobalHistory(containerId) {
+    const el = $(containerId);
+    if (!el) return;
+    
+    // Filter out historical rows matching completed lifecycle state criteria
+    const history = Object.entries(allOrders).filter(([, o]) => {
+      if (o.status !== 'completed') return false;
+      if (containerId === 'customerHistoryList') return o.customerId === currentUid;
+      if (containerId === 'storeHistoryList') return o.storeId === currentUid;
+      if (containerId === 'driverHistoryList') return o.driverId === currentUid;
+      return false;
+    });
+
+    if (history.length === 0) {
+      el.innerHTML = "No fulfilled orders yet.";
+      return;
+    }
+
+    el.innerHTML = history
+      .sort((a, b) => (b[1].completedAt || 0) - (a[1].completedAt || 0))
+      .map(([id, o]) => {
+        const itemsStr = (o.items || []).map(i => `${i.qty}× ${escapeHtml(i.name)}`).join(', ');
+        return `
+        <div class="bg-base-850 border border-base-800 rounded-xl p-3 flex flex-col gap-1 font-sans">
+          <div class="flex justify-between items-start">
+            <span class="text-white font-bold text-xs truncate">Order #${id.slice(-5)} · ${escapeHtml(o.storeName)}</span>
+            <span class="text-role-driver font-mono text-xs font-bold shrink-0">${fmtMoney(o.total)}</span>
+          </div>
+          <div class="text-[11px] text-base-400 truncate">${itemsStr}</div>
+          <div class="text-[10px] text-base-500 font-mono mt-1 flex justify-between">
+            <span>Placed: ${fmtDate(o.createdAt)}</span>
+            <span class="text-role-driver">Delivered: ${fmtDate(o.completedAt)}</span>
+          </div>
+        </div>`;
+      }).join('');
   }
 
   /* ---------------------------------------------------------------- */
@@ -831,7 +878,7 @@
     // Filter products array by active category tab selection
     let filteredPids = pids;
     if (selectedProductCategory !== "ALL") {
-      filteredPids = pids.filter(pid => products[pid].category === selectedProductCategory);
+      filteredPids = pids.filter(products[pid].category === selectedProductCategory);
     }
 
     const grid = $('productGrid');
@@ -985,8 +1032,7 @@
         customerRatedByStore: false,
       };
       await set(newOrderRef, orderPayload);
-      activeCustomerOrderId = newOrderRef.key;
-      localStorage.setItem('sougi_lastOrderId', newOrderRef.key);
+      expandedOrders[newOrderRef.key] = true; // Auto-expand newly placed orders
       cart = {};
       renderCart();
       toast('Order placed! Tracking it below.', 'customer');
@@ -999,15 +1045,14 @@
     }
   });
 
-  function renderTrackStages(currentStageIndex) {
-    const wrap = $('trackStages');
-    wrap.innerHTML = STAGE_LABELS.map((label, idx) => {
+  function renderTrackStages(orderId, currentStageIndex) {
+    return STAGE_LABELS.map((label, idx) => {
       const done = idx <= currentStageIndex;
-      return `<div class="flex-1 flex flex-col items-center gap-1.5">
-        <div class="w-3 h-3 rounded-full ${done ? 'bg-role-customer' : 'bg-base-700'}"></div>
-        <span class="text-[10px] text-center ${done ? 'text-base-300 font-semibold' : 'text-base-600'}">${label}</span>
+      return `<div class="flex-1 flex flex-col items-center gap-1">
+        <div class="w-2.5 h-2.5 rounded-full ${done ? 'bg-role-customer' : 'bg-base-700'}"></div>
+        <span class="text-[9px] text-center ${done ? 'text-base-300 font-semibold' : 'text-base-600'}">${label}</span>
       </div>`;
-    }).join('<div class="h-px flex-1 bg-base-700 -mt-4"></div>');
+    }).join('<div class="h-px flex-1 bg-base-700 -mt-3.5"></div>');
   }
 
   function getTimestampsHtml(order) {
@@ -1018,41 +1063,106 @@
     return html;
   }
 
+  /* ---------------------------------------------------------------- */
+  /* AUTO REFRESHING MULTI-ORDER WORKSPACE TRACKING ENGINE            */
+  /* ---------------------------------------------------------------- */
   function watchTracking() {
-    if (!activeCustomerOrderId) { $('trackingEmpty').classList.remove('hidden'); $('trackingActive').classList.add('hidden'); return; }
-    const order = allOrders[activeCustomerOrderId];
-    if (!order) { $('trackingEmpty').classList.remove('hidden'); $('trackingActive').classList.add('hidden'); return; }
-    $('trackingEmpty').classList.add('hidden');
-    $('trackingActive').classList.remove('hidden');
-    $('trackStoreName').textContent = order.storeName || '—';
-    $('trackTotal').textContent = fmtMoney(order.total);
-    const meta = STATUS_META[order.status] || STATUS_META.pending;
-    renderTrackStages(meta.stageIndex);
-    $('trackStatusLabel').textContent = meta.label;
+    const container = $('trackingContainer');
+    if (!container) return;
 
-    // Render Small Customer Timestamps 
-    $('trackTimestamps').innerHTML = getTimestampsHtml(order);
+    // Grab all active customer tickets matching current user identity scope bounds
+    const activeCustomerOrders = Object.entries(allOrders).filter(([, o]) => o.customerId === currentUid && o.status !== 'completed');
 
-    const rateBox = $('rateStoreBox');
-    if (order.status === 'completed' && !order.storeRatedByCustomer) {
-      rateBox.classList.remove('hidden');
-      const starsEl = $('rateStoreStars');
-      starsEl.innerHTML = '';
-      starsEl.appendChild(interactiveStars(async (stars) => {
-        if (!requireDb()) return;
-        try {
-          const storeSnap = await get(ref(database, `stores/${order.storeId}`));
-          const store = storeSnap.val() || {};
-          const newSum = (store.ratingSum || 0) + stars;
-          const newCount = (store.ratingCount || 0) + 1;
-          await update(ref(database, `stores/${order.storeId}`), { ratingSum: newSum, ratingCount: newCount });
-          await update(ref(database, `orders/${activeCustomerOrderId}`), { storeRatedByCustomer: true });
-          toast('Thanks for rating this store!', 'customer');
-        } catch (err) { console.error(err); toast('Could not submit rating.', 'customer'); }
-      }));
-    } else {
-      rateBox.classList.add('hidden');
+    if (activeCustomerOrders.length === 0) {
+      container.innerHTML = `<div id="trackingEmpty" class="text-sm text-base-500">No active orders yet. Place an order to track it live here.</div>`;
+      return;
     }
+
+    container.innerHTML = activeCustomerOrders
+      .sort((a, b) => b[1].createdAt - a[1].createdAt)
+      .map(([id, order]) => {
+        const isExpanded = expandedOrders[id] ?? false;
+        const meta = STATUS_META[order.status] || STATUS_META.pending;
+        const itemsListStr = (order.items || []).map(i => `${i.qty}× ${escapeHtml(i.name)}`).join(', ');
+
+        // Conditionally render the Cancel button if the order is still pending
+        const cancelBtnHtml = order.status === 'pending' 
+          ? `<button data-cancel-oid="${id}" class="cancel-order-btn bg-red-500/20 hover:bg-red-500/40 text-red-400 font-bold text-xs px-2.5 py-1 rounded-lg transition-colors">Cancel Order</button>` 
+          : '';
+
+        let expansionLayer = '';
+        if (isExpanded) {
+          expansionLayer = `
+          <div class="border-t border-base-800 pt-3 mt-3 space-y-3">
+            <div class="flex items-center justify-between" id="trackStages-${id}">
+              ${renderTrackStages(id, meta.stageIndex)}
+            </div>
+            <p class="text-center text-xs font-bold text-role-customer bg-role-customer/10 rounded-lg py-1.5">${meta.label}</p>
+            <div class="space-y-0.5 bg-base-950/40 p-2.5 border border-base-800 rounded-xl text-[11px] text-base-400 font-mono">
+              ${getTimestampsHtml(order)}
+            </div>
+            <div class="flex justify-between items-center mt-2">
+              <span class="text-[11px] text-base-500 truncate max-w-[150px]">Items: ${itemsListStr}</span>
+              ${cancelBtnHtml}
+            </div>
+          </div>`;
+        }
+
+        return `
+        <div class="bg-base-850 border ${isExpanded ? 'border-role-customer/40 shadow-glow-customer' : 'border-base-700'} rounded-xl p-3 transition-all duration-200">
+          <div class="flex items-center justify-between cursor-pointer accordion-toggle" data-oid="${id}">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-black text-white truncate">${escapeHtml(order.storeName)}</span>
+                <span class="text-[10px] text-role-customer bg-role-customer/10 px-1.5 py-0.5 rounded font-mono uppercase">${order.status.replace(/_/g, ' ')}</span>
+              </div>
+              <p class="text-[10px] text-base-500 mt-0.5 font-mono">ID: #${id.slice(-5)} · ${fmtDate(order.createdAt)}</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-sm font-black text-amber-400">${fmtMoney(order.total)}</span>
+              <svg class="transform transition-transform text-base-500 ${isExpanded ? 'rotate-180' : ''}" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+          </div>
+          ${expansionLayer}
+        </div>`;
+      }).join('');
+
+    // Wire up expand/collapse accordion triggers
+    container.querySelectorAll('.accordion-toggle').forEach(el => {
+      el.addEventListener('click', () => {
+        const oid = el.dataset.oid;
+        expandedOrders[oid] = !(expandedOrders[oid] ?? false);
+        watchTracking();
+      });
+    });
+
+    // Wire up immediate event handling infrastructure for tracking termination controls
+    container.querySelectorAll('.cancel-order-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation(); // Stop accordion click response from triggering
+        if (!requireDb()) return;
+        const oid = btn.dataset.cancel_oid || btn.getAttribute('data-cancel-oid');
+        if (!oid) return;
+        
+        const confirmation = confirm("Are you sure you want to cancel this order?");
+        if (!confirmation) return;
+
+        try {
+          // Double check current remote DB state node parameters before destroying references
+          const currentSnap = await get(ref(database, `orders/${oid}`));
+          if (currentSnap.exists() && currentSnap.val().status === 'pending') {
+            await remove(ref(database, `orders/${oid}`));
+            delete expandedOrders[oid];
+            toast('Order cancelled successfully.', 'customer');
+          } else {
+            toast('Cannot cancel. The store has already accepted your order.', 'amber');
+          }
+        } catch(err) {
+          console.error(err);
+          toast('Error tracking structural updates.', 'amber');
+        }
+      });
+    });
   }
 
   /* ---------------------------------------------------------------- */
@@ -1139,9 +1249,9 @@
 
   function renderStoreOrders() {
     const container = $('storeOrders');
-    const orders = Object.entries(allOrders).filter(([, o]) => o.storeId === currentUid);
+    const orders = Object.entries(allOrders).filter(([, o]) => o.storeId === currentUid && o.status !== 'completed');
     $('storeOrderCount').textContent = `${orders.length} order${orders.length === 1 ? '' : 's'}`;
-    if (orders.length === 0) { container.innerHTML = `<p class="text-sm text-base-500">No orders yet. They'll appear here in real time.</p>`; return; }
+    if (orders.length === 0) { container.innerHTML = `<p class="text-sm text-base-500">No active incoming orders yet.</p>`; return; }
     container.innerHTML = orders
       .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0))
       .map(([id, o]) => {
