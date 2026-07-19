@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -315,6 +315,10 @@
             </div>
             <div class="flex items-center justify-between" id="trackStages"></div>
             <p id="trackStatusLabel" class="text-center text-sm font-bold text-role-customer bg-role-customer/10 rounded-lg py-2"></p>
+            
+            <!-- Timestamp Timeline Layer Details -->
+            <div id="trackTimestamps" class="mt-3 space-y-1 bg-base-950/40 p-2.5 border border-base-800 rounded-xl text-[11px] text-base-400 font-mono"></div>
+
             <div id="rateStoreBox" class="hidden text-center border-t border-base-800 pt-4">
               <p class="text-xs text-base-500 mb-2">Rate this store</p>
               <div id="rateStoreStars" class="flex items-center justify-center gap-1"></div>
@@ -414,7 +418,11 @@
           <p class="text-sm text-base-400">Customer phone</p>
           <p id="activeJobPhone" class="font-bold text-white mb-2">—</p>
           <p class="text-sm text-base-400">Deliver to</p>
-          <p id="activeJobAddress" class="font-bold text-white mb-3">—</p>
+          <p id="activeJobAddress" class="font-bold text-white mb-1">—</p>
+          
+          <!-- Driver Active Ticket Timestamps Layer -->
+          <div id="activeJobTimestamps" class="mb-3 space-y-0.5 text-[10px] text-base-500 font-mono"></div>
+
           <p class="text-sm text-base-400">Total (COD)</p>
           <p id="activeJobTotal" class="font-black text-amber-400 mb-4">—</p>
           <button id="markDeliveredBtn" class="w-full bg-amber-500 hover:bg-amber-400 text-base-950 font-bold py-2.5 rounded-xl transition-colors shadow-glow-amber">Mark as delivered</button>
@@ -473,6 +481,13 @@
   const fmtMoney = (n) => `${Number(n || 0).toLocaleString()} DZD`;
   const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
   const avgRating = (sum, count) => (count && count > 0) ? (sum / count) : null;
+
+  // Tiny Date/Time formatting helper
+  const fmtDate = (ms) => {
+    if (!ms) return '';
+    const d = new Date(ms);
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
 
   function showConfigBanner(message) {
     const bar = document.createElement('div');
@@ -962,7 +977,10 @@
         storeId,
         storeName: items[0].storeName,
         driverId: null,
-        createdAt: Date.now(),
+        createdAt: Date.now(), // Placed At Time stamp
+        acceptedAt: null,
+        dispatchedAt: null,   // Out for delivery
+        completedAt: null,    // Fulfilled
         storeRatedByCustomer: false,
         customerRatedByStore: false,
       };
@@ -992,6 +1010,14 @@
     }).join('<div class="h-px flex-1 bg-base-700 -mt-4"></div>');
   }
 
+  function getTimestampsHtml(order) {
+    let html = `<div>• Placed: ${fmtDate(order.createdAt)}</div>`;
+    if (order.acceptedAt) html += `<div>• Accepted: ${fmtDate(order.acceptedAt)}</div>`;
+    if (order.dispatchedAt) html += `<div>• Out for Delivery: ${fmtDate(order.dispatchedAt)}</div>`;
+    if (order.completedAt) html += `<div>• Fulfilled: ${fmtDate(order.completedAt)}</div>`;
+    return html;
+  }
+
   function watchTracking() {
     if (!activeCustomerOrderId) { $('trackingEmpty').classList.remove('hidden'); $('trackingActive').classList.add('hidden'); return; }
     const order = allOrders[activeCustomerOrderId];
@@ -1003,6 +1029,9 @@
     const meta = STATUS_META[order.status] || STATUS_META.pending;
     renderTrackStages(meta.stageIndex);
     $('trackStatusLabel').textContent = meta.label;
+
+    // Render Small Customer Timestamps 
+    $('trackTimestamps').innerHTML = getTimestampsHtml(order);
 
     const rateBox = $('rateStoreBox');
     if (order.status === 'completed' && !order.storeRatedByCustomer) {
@@ -1133,6 +1162,14 @@
           </div>`;
         }
 
+        // Add timestamps panel block on Store Owners dashboard layout context
+        const timestampsLine = `<div class="mt-2 text-[10px] text-base-500 font-mono space-y-0.5 border-t border-base-800/50 pt-1.5">
+          <div>Placed: ${fmtDate(o.createdAt)}</div>
+          ${o.acceptedAt ? `<div>Accepted: ${fmtDate(o.acceptedAt)}</div>` : ''}
+          ${o.dispatchedAt ? `<div>Out for Delivery: ${fmtDate(o.dispatchedAt)}</div>` : ''}
+          ${o.completedAt ? `<div>Fulfilled: ${fmtDate(o.completedAt)}</div>` : ''}
+        </div>`;
+
         return `
           <div class="bg-base-850 border border-base-700 rounded-xl p-4">
             <div class="flex items-start justify-between gap-3 mb-2">
@@ -1142,6 +1179,7 @@
                 <p class="text-xs text-base-500 truncate">Deliver to: ${escapeHtml(o.deliveryAddress || '')}</p>
                 <div class="flex items-center gap-1 mt-1">${custAvg ? renderStars(custAvg, 11) : '<span class="text-[10px] text-base-600">New customer</span>'}</div>
                 <p class="text-xs text-base-500 truncate mt-1">${itemsLine}</p>
+                ${timestampsLine}
               </div>
               <span class="text-sm font-black text-amber-400 shrink-0">${fmtMoney(o.total)}</span>
             </div>
@@ -1159,7 +1197,7 @@
         const oid = btn.dataset.oid;
         const action = btn.dataset.action;
         try {
-          if (action === 'accept') { await update(ref(database, `orders/${oid}`), { status: 'accepted' }); toast('Order accepted.', 'store'); }
+          if (action === 'accept') { await update(ref(database, `orders/${oid}`), { status: 'accepted', acceptedAt: Date.now() }); toast('Order accepted.', 'store'); }
           else if (action === 'find_driver') { await update(ref(database, `orders/${oid}`), { status: 'looking_for_driver' }); toast('Broadcasting to available drivers.', 'store'); }
         } catch (err) { toast('Action failed.', 'store'); console.error(err); }
       });
@@ -1225,6 +1263,7 @@
               <p class="text-xs text-base-500">Pickup: ${escapeHtml(storeAddress)}</p>
               <p class="text-xs text-base-500">Drop-off: ${escapeHtml(o.deliveryAddress || '')}</p>
               <p class="text-xs text-base-500">Customer phone: ${escapeHtml(o.customerPhone || '')}</p>
+              <div class="text-[10px] text-base-500 font-mono mt-1">Placed: ${fmtDate(o.createdAt)}${o.acceptedAt ? ` · Accepted: ${fmtDate(o.acceptedAt)}` : ''}</div>
             </div>
             <span class="text-sm font-black text-amber-400 shrink-0">${fmtMoney(o.total)}</span>
           </div>
@@ -1236,7 +1275,7 @@
         if (!requireDb()) return;
         const oid = btn.dataset.oid;
         try {
-          await update(ref(database, `orders/${oid}`), { status: 'delivering', driverId: currentUid });
+          await update(ref(database, `orders/${oid}`), { status: 'delivering', driverId: currentUid, dispatchedAt: Date.now() });
           await update(ref(database, `drivers/${currentUid}`), { status: 'busy', activeOrderId: oid });
           toast('Job accepted. Head to the store!', 'driver');
         } catch (err) { toast('Could not accept job.', 'driver'); console.error(err); }
@@ -1254,10 +1293,14 @@
     $('activeJobPhone').textContent = order.customerPhone || '—';
     $('activeJobAddress').textContent = order.deliveryAddress || '—';
     $('activeJobTotal').textContent = fmtMoney(order.total);
+    
+    // Render Timestamps inside driver card panel
+    $('activeJobTimestamps').innerHTML = getTimestampsHtml(order);
+
     $('markDeliveredBtn').onclick = async () => {
       if (!requireDb()) return;
       try {
-        await update(ref(database, `orders/${activeOrderId}`), { status: 'completed' });
+        await update(ref(database, `orders/${activeOrderId}`), { status: 'completed', completedAt: Date.now() });
         await update(ref(database, `drivers/${currentUid}`), { status: 'available', activeOrderId: null });
 
         if (order.items && order.items.length > 0) {
